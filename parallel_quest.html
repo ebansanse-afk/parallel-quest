@@ -1,0 +1,2813 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>パラレルクエスト - Parallel Quest</title>
+<style>
+  :root {
+    --bg-dark: #0b0c10;
+    --bg-panel: #141720;
+    --bg-card: #1d2230;
+    --bg-card-hover: #262d40;
+    --border-color: #323b54;
+    --border-gold: #c9a24b;
+    --text-main: #e8ecf5;
+    --text-muted: #98a2bd;
+    --accent-gold: #f0c45c;
+    --accent-blue: #4ea8de;
+    --accent-purple: #a76df2;
+    --accent-red: #e6485c;
+    --accent-green: #4cd180;
+    --rarity-common: #b0b8c9;
+    --rarity-uncommon: #4cd180;
+    --rarity-rare: #4ea8de;
+    --rarity-legendary: #f0a830;
+    --rarity-mythic: #e056fd;
+  }
+
+  * {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+
+  body {
+    margin: 0;
+    padding: 0;
+    background-color: #050608;
+    color: var(--text-main);
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic", Meiryo, sans-serif;
+    display: flex;
+    justify-content: center;
+    min-height: 100vh;
+    font-size: 15px;
+    line-height: 1.5;
+  }
+
+  #app {
+    width: 100%;
+    max-width: 520px;
+    min-height: 100vh;
+    background-color: var(--bg-dark);
+    border-left: 1px solid var(--border-color);
+    border-right: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  /* Header Bar */
+  #top-bar {
+    background: linear-gradient(180deg, #1a1e2b 0%, #12151f 100%);
+    border-bottom: 1px solid var(--border-color);
+    padding: 10px 12px;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+
+  .top-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+  }
+
+  .badge-loop { color: var(--accent-purple); border-color: rgba(167, 109, 242, 0.4); }
+  .badge-day { color: var(--accent-blue); border-color: rgba(78, 168, 222, 0.4); }
+  .badge-day.danger { color: var(--accent-red); border-color: var(--accent-red); animation: pulse 1.5s infinite; }
+  .badge-gold { color: var(--accent-gold); border-color: rgba(240, 196, 92, 0.4); }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
+
+  .bars-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .stat-bar-wrap {
+    background: #0a0c10;
+    border: 1px solid #282f42;
+    border-radius: 6px;
+    padding: 3px 6px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .stat-bar-fill {
+    position: absolute;
+    top: 0; left: 0; bottom: 0;
+    transition: width 0.25s ease;
+    opacity: 0.35;
+  }
+  .hp-fill { background: var(--accent-green); }
+  .mp-fill { background: var(--accent-blue); }
+  .enemy-hp-fill { background: var(--accent-red); }
+
+  .stat-bar-text {
+    position: relative;
+    z-index: 1;
+    font-size: 12px;
+    font-weight: 700;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  /* Main Content Area */
+  #main-view {
+    flex: 1;
+    padding: 14px;
+    padding-bottom: 84px;
+    overflow-y: auto;
+  }
+
+  /* Bottom Navigation */
+  #bottom-nav {
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    max-width: 520px;
+    background: #12151f;
+    border-top: 1px solid var(--border-color);
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    z-index: 50;
+  }
+
+  .nav-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    padding: 10px 4px;
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    cursor: pointer;
+    border-right: 1px solid rgba(50, 59, 84, 0.4);
+  }
+  .nav-btn:last-child { border-right: none; }
+  .nav-btn.active {
+    color: var(--accent-gold);
+    background: rgba(240, 196, 92, 0.08);
+  }
+  .nav-btn .icon { font-size: 18px; }
+
+  /* Right Floating Clear Result Button */
+  #floating-ending-btn {
+    position: fixed;
+    right: max(10px, calc(50vw - 250px));
+    top: 86px;
+    z-index: 60;
+    background: linear-gradient(135deg, #c9a24b, #8c6618);
+    color: #fff;
+    border: 1px solid #ffe299;
+    border-radius: 20px;
+    padding: 8px 12px;
+    font-size: 12px;
+    font-weight: 700;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+    cursor: pointer;
+    display: none;
+  }
+
+  /* Cards & Buttons */
+  .card {
+    background: var(--bg-panel);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 12px;
+  }
+
+  .card-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--accent-gold);
+    margin: 0 0 10px 0;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    min-height: 46px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-card);
+    color: var(--text-main);
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.08s, background 0.15s;
+    text-align: center;
+  }
+  .btn:active:not(:disabled) { transform: scale(0.98); }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  .btn-primary {
+    background: linear-gradient(180deg, #2b4c7e 0%, #1d3557 100%);
+    border-color: #4ea8de;
+    color: #fff;
+  }
+  .btn-gold {
+    background: linear-gradient(180deg, #9c7424 0%, #6e4f12 100%);
+    border-color: var(--accent-gold);
+    color: #fff;
+  }
+  .btn-danger {
+    background: linear-gradient(180deg, #8c2635 0%, #5e1621 100%);
+    border-color: var(--accent-red);
+    color: #fff;
+  }
+  .btn-purple {
+    background: linear-gradient(180deg, #5d358c 0%, #3d2061 100%);
+    border-color: var(--accent-purple);
+    color: #fff;
+  }
+  .btn-sm {
+    min-height: 36px;
+    padding: 6px 10px;
+    font-size: 13px;
+    width: auto;
+  }
+
+  /* Title Screen */
+  #title-screen {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 24px;
+    text-align: center;
+    background: radial-gradient(circle at top, #1f2438 0%, #090a0f 75%);
+  }
+
+  .game-logo {
+    font-size: 32px;
+    font-weight: 900;
+    letter-spacing: 2px;
+    color: var(--accent-gold);
+    text-shadow: 0 0 20px rgba(240, 196, 92, 0.45);
+    margin-bottom: 6px;
+  }
+
+  .game-sub {
+    color: var(--accent-purple);
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    margin-bottom: 32px;
+  }
+
+  /* Status Grid */
+  .status-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+  .status-item {
+    background: var(--bg-card);
+    border: 1px solid #293045;
+    border-radius: 6px;
+    padding: 8px 10px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 14px;
+  }
+  .status-label { color: var(--text-muted); }
+  .status-val { font-weight: 700; }
+
+  /* Area List */
+  .area-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 12px;
+    margin-bottom: 10px;
+  }
+  .area-card.special { border-color: rgba(167, 109, 242, 0.5); }
+  .area-card.boss { border-color: rgba(230, 72, 92, 0.6); }
+  .area-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+  .area-name { font-size: 16px; font-weight: 700; }
+  .area-tag {
+    font-size: 11px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    background: #12151f;
+    color: var(--text-muted);
+  }
+
+  /* Battle Screen */
+  .enemy-box {
+    background: radial-gradient(circle at center, #251b2e 0%, #141720 100%);
+    border: 1px solid #48325c;
+    border-radius: 12px;
+    padding: 14px;
+    text-align: center;
+    margin-bottom: 12px;
+    position: relative;
+  }
+  .enemy-visual {
+    font-size: 48px;
+    margin: 6px 0;
+    display: inline-block;
+    transition: transform 0.15s;
+  }
+  .shake { animation: shakeAnim 0.35s; }
+  @keyframes shakeAnim {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-8px); }
+    50% { transform: translateX(8px); }
+    75% { transform: translateX(-5px); }
+  }
+
+  .floating-popup {
+    position: absolute;
+    top: 30%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 22px;
+    font-weight: 900;
+    color: #fff;
+    text-shadow: 0 2px 8px #000;
+    pointer-events: none;
+    animation: floatUp 0.9s forwards;
+    z-index: 20;
+  }
+  @keyframes floatUp {
+    0% { opacity: 1; transform: translate(-50%, -30%); }
+    100% { opacity: 0; transform: translate(-50%, -110%); }
+  }
+
+  .battle-log {
+    background: #090b10;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 10px;
+    height: 135px;
+    overflow-y: auto;
+    font-size: 13px;
+    margin-bottom: 12px;
+  }
+  .battle-log div { margin-bottom: 4px; border-bottom: 1px dashed rgba(255,255,255,0.06); padding-bottom: 3px; }
+
+  .battle-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  /* Rarity Colors */
+  .r-一般 { color: var(--rarity-common); }
+  .r-上質 { color: var(--rarity-uncommon); }
+  .r-希少 { color: var(--rarity-rare); }
+  .r-伝説 { color: var(--rarity-legendary); }
+  .r-神話 { color: var(--rarity-mythic); text-shadow: 0 0 8px rgba(224, 86, 253, 0.5); }
+
+  .border-一般 { border-left: 4px solid var(--rarity-common); }
+  .border-上質 { border-left: 4px solid var(--rarity-uncommon); }
+  .border-希少 { border-left: 4px solid var(--rarity-rare); }
+  .border-伝説 { border-left: 4px solid var(--rarity-legendary); }
+  .border-神話 { border-left: 4px solid var(--rarity-mythic); box-shadow: inset 0 0 12px rgba(224, 86, 253, 0.15); }
+
+  /* Filter Tabs */
+  .tabs {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 8px;
+    margin-bottom: 10px;
+  }
+  .tab-btn {
+    padding: 6px 12px;
+    border-radius: 16px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-card);
+    color: var(--text-muted);
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .tab-btn.active {
+    background: var(--accent-gold);
+    color: #0b0c10;
+    border-color: var(--accent-gold);
+  }
+
+  /* List Item Row */
+  .list-item {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+  }
+  .list-item-info { flex: 1; min-width: 0; }
+  .list-item-title { font-weight: 700; font-size: 15px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .list-item-sub { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
+
+  /* Modals */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.82);
+    z-index: 100;
+    display: none;
+    justify-content: center;
+    align-items: center;
+    padding: 16px;
+  }
+  .modal-backdrop.open { display: flex; }
+  .modal-box {
+    width: 100%;
+    max-width: 460px;
+    max-height: 88vh;
+    overflow-y: auto;
+    background: var(--bg-panel);
+    border: 1px solid var(--border-gold);
+    border-radius: 12px;
+    padding: 18px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+  }
+  .modal-title {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--accent-gold);
+    margin: 0 0 12px 0;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 8px;
+  }
+
+  /* Soul Drop Celebration */
+  .soul-drop-banner {
+    background: linear-gradient(135deg, #1f1730 0%, #131b2e 100%);
+    border: 2px solid var(--accent-purple);
+    border-radius: 10px;
+    padding: 14px;
+    margin: 12px 0;
+    text-align: center;
+    animation: dropGlow 1.5s infinite alternate;
+  }
+  @keyframes dropGlow {
+    from { box-shadow: 0 0 8px rgba(167, 109, 242, 0.3); }
+    to { box-shadow: 0 0 20px rgba(240, 196, 92, 0.6); }
+  }
+
+  /* Ending Screen */
+  .ending-box {
+    background: linear-gradient(180deg, #1d1a10 0%, #12151f 100%);
+    border: 2px solid var(--accent-gold);
+    border-radius: 14px;
+    padding: 20px;
+    text-align: center;
+  }
+  .ending-text {
+    white-space: pre-wrap;
+    text-align: left;
+    background: rgba(0,0,0,0.45);
+    border: 1px solid rgba(240, 196, 92, 0.35);
+    border-radius: 8px;
+    padding: 14px;
+    margin: 14px 0;
+    font-size: 15px;
+    line-height: 1.75;
+    color: #fff8e7;
+  }
+
+  .attr-tag {
+    font-size: 11px;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-weight: 700;
+  }
+  .attr-炎 { background: rgba(230, 72, 92, 0.25); color: #ff7b8b; }
+  .attr-氷 { background: rgba(78, 168, 222, 0.25); color: #8ad4ff; }
+  .attr-雷 { background: rgba(240, 196, 92, 0.25); color: #ffe082; }
+  .attr-光 { background: rgba(255, 255, 200, 0.25); color: #fff9c4; }
+  .attr-闇 { background: rgba(167, 109, 242, 0.25); color: #d5b3ff; }
+  .attr-無属性 { background: rgba(160, 170, 190, 0.25); color: #cfd8dc; }
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- Title Screen -->
+  <div id="title-screen">
+    <div style="font-size:48px; margin-bottom:10px;">⏳⚔️🔮</div>
+    <div class="game-logo">パラレルクエスト</div>
+    <div class="game-sub">PARALLEL QUEST</div>
+    <p style="color:var(--text-muted); font-size:14px; max-width:340px; margin-bottom:28px;">
+      6日で巻き戻る世界の果て、魂の結晶「ソウル」と魔法を極め、輪廻を断ち切り魔王を討て。
+    </p>
+    <div style="width:100%; max-width:300px; display:flex; flex-direction:column; gap:12px;">
+      <button id="btn-continue" class="btn btn-gold" style="display:none;" onclick="Game.continueGame()">冒険を再開する</button>
+      <button id="btn-newgame" class="btn btn-primary" onclick="Game.startNewGame()">最初から始める</button>
+      <button id="btn-reset-save" class="btn btn-sm" style="color:var(--text-muted); margin-top:8px;" onclick="Game.confirmHardReset()">セーブデータを初期化</button>
+    </div>
+  </div>
+
+  <!-- Game Shell -->
+  <div id="game-shell" style="display:none; flex-direction:column; min-height:100vh;">
+    <header id="top-bar">
+      <div class="top-row">
+        <div style="display:flex; gap:6px; align-items:center;">
+          <span id="ui-loop" class="badge badge-loop">第1周目</span>
+          <span id="ui-day" class="badge badge-day">1日目 / 6日</span>
+        </div>
+        <div style="display:flex; gap:6px; align-items:center;">
+          <span id="ui-lv" class="badge">Lv.1</span>
+          <span id="ui-gold" class="badge badge-gold">0 G</span>
+        </div>
+      </div>
+      <div class="bars-grid">
+        <div class="stat-bar-wrap">
+          <div id="ui-hp-bar" class="stat-bar-fill hp-fill" style="width:100%;"></div>
+          <div class="stat-bar-text"><span>HP</span><span id="ui-hp-text">100/100</span></div>
+        </div>
+        <div class="stat-bar-wrap">
+          <div id="ui-mp-bar" class="stat-bar-fill mp-fill" style="width:100%;"></div>
+          <div class="stat-bar-text"><span>MP</span><span id="ui-mp-text">30/30</span></div>
+        </div>
+      </div>
+    </header>
+
+    <button id="floating-ending-btn" onclick="Game.showEndingModal()">👑 クリア結果</button>
+
+    <main id="main-view"></main>
+
+    <nav id="bottom-nav">
+      <button class="nav-btn active" data-tab="home" onclick="Game.switchTab('home')">
+        <span class="icon">🏰</span><span>拠点/状態</span>
+      </button>
+      <button class="nav-btn" data-tab="map" onclick="Game.switchTab('map')">
+        <span class="icon">🗺️</span><span>冒険マップ</span>
+      </button>
+      <button class="nav-btn" data-tab="magic" onclick="Game.switchTab('magic')">
+        <span class="icon">📖</span><span>魔法編成</span>
+      </button>
+      <button class="nav-btn" data-tab="soul" onclick="Game.switchTab('soul')">
+        <span class="icon">💎</span><span>ソウル装備</span>
+      </button>
+      <button class="nav-btn" data-tab="log" onclick="Game.switchTab('log')">
+        <span class="icon">📜</span><span>記録/設定</span>
+      </button>
+    </nav>
+  </div>
+</div>
+
+<!-- General Detail / Notification Modal -->
+<div id="modal-backdrop" class="modal-backdrop" onclick="if(event.target===this) Game.closeModal()">
+  <div id="modal-content" class="modal-box"></div>
+</div>
+
+<script>
+"use strict";
+
+/* ==========================================================================
+   MASTER DATA: SPELLS (48 Spells across 6 attributes & roles)
+   ========================================================================== */
+const SPELLS = [
+  // 炎属性 (Fire)
+  { id: "m_fire_1", name: "ファイアボルト", attr: "炎", mp: 4, power: 1.35, type: "attack", desc: "小さな火球を放つ基本の炎魔法。", learn: "初期習得" },
+  { id: "m_fire_2", name: "フレイムバースト", attr: "炎", mp: 10, power: 1.85, type: "attack", desc: "爆炎で敵を焼き払う中級攻撃魔法。", learn: "Lv.4到達" },
+  { id: "m_fire_3", name: "イグニッション", attr: "炎", mp: 8, power: 0, type: "buff_atk", val: 0.25, desc: "闘志を燃やし、戦闘中自分の攻撃力を25%上昇。", learn: "Lv.6到達" },
+  { id: "m_fire_4", name: "ブレイズランス", attr: "炎", mp: 18, power: 2.35, type: "attack", status: "burn", statusChance: 0.45, desc: "灼熱の槍で貫き、高確率で火傷を付与する。", learn: "Lv.10到達" },
+  { id: "m_fire_5", name: "クリムゾンノヴァ", attr: "炎", mp: 30, power: 3.1, type: "attack", status: "burn", statusChance: 0.6, desc: "紅蓮の爆発を起こし絶大な炎ダメージを与える。", learn: "Lv.18到達" },
+  { id: "m_fire_6", name: "プロミネンスフレア", attr: "炎", mp: 46, power: 4.0, type: "attack", status: "burn", statusChance: 0.8, desc: "太陽の黒点のごとき業火で敵を灰燼に帰す。", learn: "Lv.28到達" },
+  { id: "m_fire_7", name: "煉獄の咆哮", attr: "炎", mp: 65, power: 5.1, type: "attack", desc: "地獄の業火を呼び覚ます究極の炎属性奥義。", learn: "魔王城・竜の墓場撃破" },
+  { id: "m_fire_8", name: "陽炎の衣", attr: "炎", mp: 14, power: 0, type: "buff_eva", val: 15, desc: "熱気で姿を揺らめかせ、戦闘中回避率+15%。", learn: "Lv.12到達" },
+
+  // 氷属性 (Ice)
+  { id: "m_ice_1", name: "アイスニードル", attr: "氷", mp: 5, power: 1.4, type: "attack", desc: "鋭い氷柱を飛ばして敵を穿つ。", learn: "Lv.2到達" },
+  { id: "m_ice_2", name: "フロストバイト", attr: "氷", mp: 11, power: 1.75, type: "attack", debuff: "atk", val: 0.2, desc: "凍気で敵の筋肉を強張らせ攻撃力を20%低下。", learn: "Lv.5到達" },
+  { id: "m_ice_3", name: "アイシクルシールド", attr: "氷", mp: 10, power: 0, type: "buff_def", val: 0.30, desc: "氷の防壁を展開し、戦闘中防御力を30%上昇。", learn: "Lv.7到達" },
+  { id: "m_ice_4", name: "ブリザードストーム", attr: "氷", mp: 22, power: 2.5, type: "attack", status: "freeze", statusChance: 0.35, desc: "猛吹雪で凍てつかせ、確率で行動不能(凍結)にする。", learn: "Lv.13到達" },
+  { id: "m_ice_5", name: "グレイシャルランス", attr: "氷", mp: 32, power: 3.15, type: "attack", debuff: "def", val: 0.25, desc: "氷河の槍で装甲を砕き、敵の防御力を25%低下。", learn: "Lv.20到達" },
+  { id: "m_ice_6", name: "アブソリュートゼロ", attr: "氷", mp: 50, power: 4.15, type: "attack", status: "freeze", statusChance: 0.5, desc: "絶対零度の波動で全てを凍結させる極大魔法。", learn: "Lv.30到達" },
+  { id: "m_ice_7", name: "明鏡止水", attr: "氷", mp: 16, power: 0, type: "buff_mag", val: 0.30, desc: "心を氷のように澄ませ、戦闘中魔力を30%上昇。", learn: "Lv.15到達" },
+  { id: "m_ice_8", name: "コキュートス", attr: "氷", mp: 68, power: 5.2, type: "attack", status: "freeze", statusChance: 0.65, desc: "氷地獄の底へ引きずり込む禁断の氷結魔法。", learn: "時守りの塔攻略" },
+
+  // 雷属性 (Thunder)
+  { id: "m_thun_1", name: "スパーク", attr: "雷", mp: 5, power: 1.45, type: "attack", desc: "高圧の電撃を放つ速攻の雷魔法。", learn: "Lv.3到達" },
+  { id: "m_thun_2", name: "サンダーボルト", attr: "雷", mp: 13, power: 1.95, type: "attack", status: "para", statusChance: 0.4, desc: "落雷を浴びせ、確率で麻痺状態にする。", learn: "Lv.8到達" },
+  { id: "m_thun_3", name: "ライトニングステップ", attr: "雷", mp: 14, power: 0, type: "buff_eva", val: 18, desc: "雷光を纏い、戦闘中回避率+18%・会心率+10%。", learn: "Lv.11到達" },
+  { id: "m_thun_4", name: "プラズマチェーン", attr: "雷", mp: 24, power: 2.65, type: "attack", status: "para", statusChance: 0.5, desc: "連鎖する電撃で神経を焼き麻痺させる。", learn: "Lv.16到達" },
+  { id: "m_thun_5", name: "インドラの矢", attr: "雷", mp: 36, power: 3.4, type: "attack", critBonus: 25, desc: "神速の雷矢。会心率が+25%補正される。", learn: "Lv.23到達" },
+  { id: "m_thun_6", name: "ケラウノス", attr: "雷", mp: 52, power: 4.3, type: "attack", status: "para", statusChance: 0.65, desc: "天罰の巨雷を落とし敵を粉砕する。", learn: "Lv.32到達" },
+  { id: "m_thun_7", name: "オーバークロック", attr: "雷", mp: 20, power: 0, type: "buff_all", val: 0.20, desc: "神経伝達を加速し全能力(攻/防/魔)を20%上昇。", learn: "時守りの塔の敵撃破" },
+  { id: "m_thun_8", name: "ミョルニル・ストライク", attr: "雷", mp: 70, power: 5.4, type: "attack", critBonus: 30, desc: "雷神の鉄槌のごとき一撃を叩き込む。", learn: "四将撃破報酬" },
+
+  // 光属性 (Light)
+  { id: "m_light_1", name: "ヒール", attr: "光", mp: 6, power: 1.8, type: "heal", desc: "聖なる光で自身のHPを回復する。", learn: "初期習得" },
+  { id: "m_light_2", name: "ホーリーレイ", attr: "光", mp: 9, power: 1.65, type: "attack", desc: "浄化の光線で闇の魔物を貫く。", learn: "Lv.4到達" },
+  { id: "m_light_3", name: "キュアライト", attr: "光", mp: 10, power: 1.2, type: "heal_cure", desc: "HPを回復しつつ、毒・火傷・麻痺・呪いを浄化する。", learn: "Lv.6到達" },
+  { id: "m_light_4", name: "ハイヒール", attr: "光", mp: 16, power: 3.2, type: "heal", desc: "豊かな癒やしの光でHPを大きく回復する。", learn: "Lv.11到達" },
+  { id: "m_light_5", name: "セイクリッドガード", attr: "光", mp: 15, power: 0, type: "buff_def", val: 0.40, desc: "聖なる結界を張り、防御力を40%上昇させる。", learn: "Lv.14到達" },
+  { id: "m_light_6", name: "シャインブラスト", attr: "光", mp: 26, power: 2.8, type: "attack", debuff: "atk", val: 0.2, desc: "閃光で敵の目を眩ませ攻撃力を20%低下させる。", learn: "Lv.19到達" },
+  { id: "m_light_7", name: "フルリジェネ", attr: "光", mp: 28, power: 5.0, type: "heal_cure", desc: "女神の祝福でHPを特大回復し状態異常を全解除。", learn: "Lv.25到達" },
+  { id: "m_light_8", name: "セラフィムジャッジ", attr: "光", mp: 58, power: 4.8, type: "attack", desc: "熾天使の裁きの光で邪悪を滅ぼす。", learn: "Lv.35到達" },
+
+  // 闇属性 (Dark)
+  { id: "m_dark_1", name: "シャドウバイト", attr: "闇", mp: 6, power: 1.5, type: "attack", desc: "影の牙で敵の生命力を噛み砕く。", learn: "Lv.3到達" },
+  { id: "m_dark_2", name: "ポイズンミスト", attr: "闇", mp: 9, power: 1.3, type: "attack", status: "poison", statusChance: 0.75, desc: "猛毒の霧で包み、高確率で毒状態にする。", learn: "Lv.5到達" },
+  { id: "m_dark_3", name: "ドレインライフ", attr: "闇", mp: 14, power: 1.75, type: "drain", drainRate: 0.5, desc: "敵に闇ダメージを与え、与ダメの50%分HPを吸収。", learn: "Lv.9到達" },
+  { id: "m_dark_4", name: "カースウィーク", attr: "闇", mp: 12, power: 0, type: "debuff_both", val: 0.25, desc: "呪いの鎖で敵の攻撃力と防御力を25%低下。", learn: "Lv.12到達" },
+  { id: "m_dark_5", name: "アビスインパクト", attr: "闇", mp: 28, power: 3.0, type: "attack", status: "curse", statusChance: 0.5, desc: "深淵の衝撃波。確率で呪い(毎ターン固定ダメージ)付与。", learn: "Lv.17到達" },
+  { id: "m_dark_6", name: "ソウルイーター", attr: "闇", mp: 34, power: 2.9, type: "drain", drainRate: 0.65, desc: "魂を喰らい、与ダメージの65%分HPを回復する。", learn: "Lv.24到達" },
+  { id: "m_dark_7", name: "カタストロフィ", attr: "闇", mp: 54, power: 4.5, type: "attack", status: "curse", statusChance: 0.7, desc: "破滅の闇を呼び寄せ敵を絶望に沈める。", learn: "Lv.33到達" },
+  { id: "m_dark_8", name: "エクリプス・エンド", attr: "闇", mp: 72, power: 5.6, type: "attack", desc: "全てを無に帰す終焉の暗黒魔法。", learn: "魔王城攻略" },
+
+  // 無属性 (Neutral)
+  { id: "m_neu_1", name: "マジックミサイル", attr: "無属性", mp: 4, power: 1.35, type: "attack", desc: "純粋な魔力弾を放つ。属性耐性に影響されにくい。", learn: "Lv.2到達" },
+  { id: "m_neu_2", name: "フォースブレイク", attr: "無属性", mp: 11, power: 1.7, type: "attack", debuff: "def", val: 0.25, desc: "無属性の衝撃で敵の防御力を25%低下させる。", learn: "Lv.7到達" },
+  { id: "m_neu_3", name: "マナチャージ", attr: "無属性", mp: 0, power: 0, type: "mp_recover", val: 0.35, desc: "精神を集中し、最大MPの35%を即座に回復する。", learn: "Lv.8到達" },
+  { id: "m_neu_4", name: "アルカナブラスト", attr: "無属性", mp: 22, power: 2.6, type: "attack", desc: "高密度の魔力砲を放つ汎用性の高い攻撃魔法。", learn: "Lv.15到達" },
+  { id: "m_neu_5", name: "クロノスロウ", attr: "無属性", mp: 18, power: 1.5, type: "attack", status: "freeze", statusChance: 0.45, desc: "局地的な時間遅延を起こし、確率で敵を停止させる。", learn: "時守りの塔到達" },
+  { id: "m_neu_6", name: "メテオスウォーム", attr: "無属性", mp: 42, power: 3.85, type: "attack", desc: "無数の隕石を召喚し敵を押し潰す大魔法。", learn: "Lv.26到達" },
+  { id: "m_neu_7", name: "パラドックスブレイク", attr: "無属性", mp: 55, power: 4.7, type: "attack", ignoreDef: 0.35, desc: "因果律を歪め、敵の防御力35%を無視して大ダメージ。", learn: "2周目以降・時守りの塔撃破" },
+  { id: "m_neu_8", name: "アルテマ・オリジン", attr: "無属性", mp: 75, power: 5.8, type: "attack", ignoreDef: 0.4, desc: "根源の魔力を解放する究極無属性魔法。", learn: "Lv.40到達" }
+];
+
+/* ==========================================================================
+   MASTER DATA: SOULS (36 Souls across Weapon, Armor, Accessory & 5 Rarities)
+   ========================================================================== */
+const SOULS = [
+  // Weapon Souls (武器)
+  { id: "s_w_1", name: "錆びた剣士のソウル", slot: "weapon", rarity: "一般", atk: 8, mag: 2, crit: 2, special: "なし", effect: {} },
+  { id: "s_w_2", name: "見習い魔導師の杖ソウル", slot: "weapon", rarity: "一般", atk: 2, mag: 10, crit: 2, special: "なし", effect: {} },
+  { id: "s_w_3", name: "猟犬の牙ソウル", slot: "weapon", rarity: "上質", atk: 16, mag: 4, crit: 6, special: "攻撃時+15追加ダメージ", effect: { bonusDmg: 15 } },
+  { id: "s_w_4", name: "紅蓮の魔杖ソウル", slot: "weapon", rarity: "上質", atk: 6, mag: 22, crit: 4, special: "炎属性ダメージ+20%", effect: { elemBoost: { 炎: 0.2 } } },
+  { id: "s_w_5", name: "氷結の細剣ソウル", slot: "weapon", rarity: "上質", atk: 18, mag: 14, crit: 7, special: "氷属性ダメージ+20%", effect: { elemBoost: { 氷: 0.2 } } },
+  { id: "s_w_6", name: "騎士団長の大剣ソウル", slot: "weapon", rarity: "希少", atk: 34, mag: 8, crit: 8, special: "攻撃時+40追加ダメージ", effect: { bonusDmg: 40 } },
+  { id: "s_w_7", name: "雷鳴の魔導書ソウル", slot: "weapon", rarity: "希少", atk: 10, mag: 42, crit: 10, special: "雷・魔法ダメージ+18%", effect: { magicBoost: 0.18 } },
+  { id: "s_w_8", name: "暗殺者の短剣ソウル", slot: "weapon", rarity: "希少", atk: 30, mag: 15, crit: 18, special: "会心ダメージ倍率アップ(+25%)", effect: { critDmg: 0.25 } },
+  { id: "s_w_9", name: "聖騎士の断罪剣ソウル", slot: "weapon", rarity: "伝説", atk: 58, mag: 32, crit: 12, special: "光属性ダメージ+30%・攻撃時+80追加ダメージ", effect: { elemBoost: { 光: 0.3 }, bonusDmg: 80 } },
+  { id: "s_w_10", name: "深淵の魔剣グラムソウル", slot: "weapon", rarity: "伝説", atk: 68, mag: 40, crit: 15, special: "闇属性ダメージ+30%・与ダメの8%HP吸収", effect: { elemBoost: { 闇: 0.3 }, lifesteal: 0.08 } },
+  { id: "s_w_11", name: "時空神の聖剣クロノスソウル", slot: "weapon", rarity: "神話", atk: 105, mag: 95, crit: 22, special: "全魔法ダメージ+30%・攻撃時+160追加ダメージ", effect: { magicBoost: 0.30, bonusDmg: 160 } },
+  { id: "s_w_12", name: "竜王バハムートの爪ソウル", slot: "weapon", rarity: "神話", atk: 125, mag: 70, crit: 25, special: "会心威力+40%・戦闘開始時攻撃力+20%", effect: { critDmg: 0.40, startAtk: 0.20 } },
+
+  // Armor Souls (防具)
+  { id: "s_a_1", name: "旅人のローブのソウル", slot: "armor", rarity: "一般", def: 6, hp: 25, eva: 5, special: "回避率+5%", effect: {} },
+  { id: "s_a_2", name: "革の胸当てソウル", slot: "armor", rarity: "一般", def: 10, hp: 35, eva: 2, special: "なし", effect: {} },
+  { id: "s_a_3", name: "鉄壁の重鎧ソウル", slot: "armor", rarity: "上質", def: 22, hp: 75, eva: 0, special: "HP50%以下で防御力+25%", effect: { lowHpDef: 0.25 } },
+  { id: "s_a_4", name: "疾風の軽装鎧ソウル", slot: "armor", rarity: "上質", def: 14, hp: 55, eva: 10, special: "回避率+10%・回避成功時に反撃", effect: { counterOnEva: true } },
+  { id: "s_a_5", name: "魔導師の法衣ソウル", slot: "armor", rarity: "上質", def: 15, hp: 60, eva: 6, special: "状態異常耐性+30%", effect: { statusRes: 0.30 } },
+  { id: "s_a_6", name: "ミスリルチェインソウル", slot: "armor", rarity: "希少", def: 36, hp: 130, eva: 8, special: "状態異常耐性+50%・戦闘開始時防御力+15%", effect: { statusRes: 0.50, startDef: 0.15 } },
+  { id: "s_a_7", name: "影縫いの忍装束ソウル", slot: "armor", rarity: "希少", def: 26, hp: 100, eva: 16, special: "回避成功時に強力反撃(1.2倍)", effect: { counterOnEva: true, counterMult: 1.2 } },
+  { id: "s_a_8", name: "竜鱗のプレートソウル", slot: "armor", rarity: "伝説", def: 62, hp: 240, eva: 6, special: "炎・氷・雷耐性+25%・HP50%以下で防御+35%", effect: { elemRes: { 炎: 0.25, 氷: 0.25, 雷: 0.25 }, lowHpDef: 0.35 } },
+  { id: "s_a_9", name: "熾天使の聖鎧ソウル", slot: "armor", rarity: "伝説", def: 54, hp: 220, eva: 14, special: "闇耐性+40%・状態異常耐性+75%", effect: { elemRes: { 闇: 0.40 }, statusRes: 0.75 } },
+  { id: "s_a_10", name: "不滅なる神王の鎧ソウル", slot: "armor", rarity: "神話", def: 98, hp: 420, eva: 15, special: "全属性耐性+25%・状態異常無効(100%)・回避時反撃", effect: { allElemRes: 0.25, statusRes: 1.0, counterOnEva: true, counterMult: 1.5 } },
+
+  // Accessory Souls (装飾)
+  { id: "s_c_1", name: "小さな魔石のソウル", slot: "acc", rarity: "一般", mp: 15, mag: 4, eva: 2, special: "最大MP+15", effect: {} },
+  { id: "s_c_2", name: "幸運の四葉ソウル", slot: "acc", rarity: "一般", crit: 5, eva: 4, special: "会心率+5%・回避率+4%", effect: {} },
+  { id: "s_c_3", name: "炎精霊の指輪ソウル", slot: "acc", rarity: "上質", mag: 10, mp: 20, special: "炎耐性+35%・炎魔法威力+15%", effect: { elemRes: { 炎: 0.35 }, elemBoost: { 炎: 0.15 } } },
+  { id: "s_c_4", name: "氷精霊の指輪ソウル", slot: "acc", rarity: "上質", def: 8, mp: 20, special: "氷耐性+35%・氷魔法威力+15%", effect: { elemRes: { 氷: 0.35 }, elemBoost: { 氷: 0.15 } } },
+  { id: "s_c_5", name: "雷精霊の指輪ソウル", slot: "acc", rarity: "上質", crit: 8, eva: 5, special: "雷耐性+35%・雷魔法威力+15%", effect: { elemRes: { 雷: 0.35 }, elemBoost: { 雷: 0.15 } } },
+  { id: "s_c_6", name: "賢者のマナリングソウル", slot: "acc", rarity: "希少", mag: 22, mp: 45, special: "毎ターンMP5%回復・魔法ダメージ+15%", effect: { mpRegen: 0.05, magicBoost: 0.15 } },
+  { id: "s_c_7", name: "見切りの護符ソウル", slot: "acc", rarity: "希少", eva: 12, crit: 8, special: "回避率+12%・回避成功時に反撃", effect: { counterOnEva: true } },
+  { id: "s_c_8", name: "戦神の紋章ソウル", slot: "acc", rarity: "希少", atk: 24, crit: 10, special: "戦闘開始時に攻撃力+20%", effect: { startAtk: 0.20 } },
+  { id: "s_c_9", name: "吸血鬼の紅玉ソウル", slot: "acc", rarity: "伝説", atk: 30, mag: 30, mp: 50, special: "攻撃・魔法与ダメの10%HP吸収", effect: { lifesteal: 0.10 } },
+  { id: "s_c_10", name: "大魔導の星冠ソウル", slot: "acc", rarity: "伝説", mag: 48, mp: 85, crit: 12, special: "消費MP20%軽減・毎ターンMP8%回復", effect: { mpCostRed: 0.20, mpRegen: 0.08 } },
+  { id: "s_c_11", name: "輪廻の砂時計ソウル", slot: "acc", rarity: "神話", atk: 45, mag: 45, def: 35, hp: 150, mp: 100, eva: 10, crit: 12, special: "戦闘開始時全能力+20%・毎ターンHP/MP8%回復", effect: { startAtk: 0.20, startDef: 0.20, startMag: 0.20, hpRegen: 0.08, mpRegen: 0.08 } },
+  { id: "s_c_12", name: "魔王の心臓ソウル", slot: "acc", rarity: "神話", atk: 65, mag: 65, crit: 18, special: "全ダメージ+25%・攻撃時+120追加ダメージ", effect: { magicBoost: 0.25, bonusDmg: 120 } }
+];
+
+/* ==========================================================================
+   MASTER DATA: ITEMS (Shop)
+   ========================================================================== */
+const SHOP_ITEMS = [
+  { id: "item_hp_s", name: "薬草", type: "heal_hp", val: 80, price: 30, desc: "HPを80回復する。周回で消滅する。" },
+  { id: "item_hp_m", name: "上薬草", type: "heal_hp", val: 250, price: 90, desc: "HPを250回復する。周回で消滅する。" },
+  { id: "item_hp_l", name: "エリクサーの雫", type: "heal_hp_pct", val: 1.0, price: 260, desc: "HPを全回復する。周回で消滅する。" },
+  { id: "item_mp_s", name: "魔力水", type: "heal_mp", val: 40, price: 45, desc: "MPを40回復する。周回で消滅する。" },
+  { id: "item_mp_m", name: "大魔力水", type: "heal_mp", val: 120, price: 130, desc: "MPを120回復する。周回で消滅する。" },
+  { id: "item_cure", name: "万能薬", type: "cure_all", val: 100, price: 70, desc: "HPを100回復し、全ての状態異常を治療する。" },
+  { id: "item_bomb", name: "魔導爆弾", type: "battle_dmg", val: 220, price: 110, desc: "戦闘専用：敵に防御無視の220ダメージを与える。" },
+  { id: "item_atk_pot", name: "剛力の秘薬", type: "battle_buff", val: 0.35, price: 140, desc: "戦闘専用：戦闘中、攻撃力と魔力を35%上昇させる。" }
+];
+
+/* ==========================================================================
+   MASTER DATA: AREAS & ENEMIES (25+ Enemies including 20+ in Graveyard/High-tier)
+   ========================================================================== */
+const AREAS = [
+  { id: "capital", name: "王都アルカディア", tag: "拠点", desc: "冒険の拠点。宿屋での休息やショップでの買い物ができる。", type: "town" },
+  { id: "normal_1", name: "始まりの草原", tag: "通常・序盤", desc: "王都の外に広がる草原。基礎的な魔物が生息し、魔法習得に適している。", type: "battle", days: 1 },
+  { id: "normal_2", name: "霧深い古森", tag: "通常・中盤", desc: "濃霧に包まれた森。状態異常を扱う魔物や中級モンスターが現れる。", type: "battle", days: 1 },
+  { id: "graveyard", name: "鎧の墓場", tag: "重要・ソウル収集", desc: "無数の戦士の亡骸と魂が眠る聖域。強敵を倒すと永続装備「ソウル」をドロップする！", type: "battle", days: 1, special: true },
+  { id: "bonus", name: "黄金の試練場（ボーナスステージ）", tag: "高難度・特別報酬", desc: "古の守護者が試練を与える異空間。非常に強いが莫大な経験値と高レアソウルを授ける。", type: "battle", days: 1, special: true },
+  { id: "clocktower", name: "時守りの塔", tag: "高難度・時間魔法", desc: "世界の時間軸を司る巨塔。時空を操る魔導兵器や魔物が立ち塞がる。", type: "battle", days: 1, special: true },
+  { id: "dragon_grave", name: "竜の墓場", tag: "高難度・竜族", desc: "古竜たちが最期を迎える峡谷。圧倒的なブレスと鱗を持つ竜族が君臨する。", type: "battle", days: 1, special: true },
+  { id: "demon_castle", name: "魔王城・四将領域", tag: "最終盤・四将", desc: "魔王軍の本拠地。配下の「四将」が待ち受ける。全員討伐で魔王の間が解放される。", type: "four_generals", days: 1, boss: true },
+  { id: "demon_throne", name: "魔王の間", tag: "最終決戦", desc: "輪廻の元凶たる魔王が座す玉座の間。四将を全員倒すことで挑戦可能。", type: "demon_lord", days: 1, boss: true }
+];
+
+const ENEMIES = {
+  normal_1: [
+    { name: "スライム", icon: "🟢", lv: 1, hp: 42, atk: 11, def: 4, mag: 6, eva: 3, exp: 18, gold: 15, res: {}, abilities: [], drops: [{ id: "s_w_1", rate: 0.22 }, { id: "s_a_1", rate: 0.22 }] },
+    { name: "ゴブリン斥候", icon: "👺", lv: 2, hp: 58, atk: 15, def: 6, mag: 5, eva: 6, exp: 26, gold: 22, res: {}, abilities: ["double_strike"], drops: [{ id: "s_w_1", rate: 0.25 }, { id: "s_c_2", rate: 0.20 }] },
+    { name: "ウィスプ", icon: "🔥", lv: 3, hp: 52, atk: 10, def: 5, mag: 16, eva: 8, exp: 32, gold: 25, res: { 炎: 0.3 }, abilities: ["elem_炎"], drops: [{ id: "s_c_1", rate: 0.25 }, { id: "s_w_2", rate: 0.22 }] },
+    { name: "ウルフ", icon: "🐺", lv: 4, hp: 74, atk: 20, def: 8, mag: 6, eva: 9, exp: 40, gold: 30, res: {}, abilities: ["double_strike"], drops: [{ id: "s_w_3", rate: 0.18 }, { id: "s_a_2", rate: 0.22 }] }
+  ],
+  normal_2: [
+    { name: "ポイズンマッシュ", icon: "🍄", lv: 6, hp: 115, atk: 24, def: 14, mag: 22, eva: 4, exp: 68, gold: 48, res: { 闇: 0.25 }, abilities: ["status_poison"], drops: [{ id: "s_a_5", rate: 0.20 }, { id: "s_c_1", rate: 0.25 }] },
+    { name: "フォレストゴーレム", icon: "🗿", lv: 8, hp: 175, atk: 34, def: 28, mag: 10, eva: 2, exp: 95, gold: 65, res: { 雷: 0.3 }, abilities: ["buff_def"], drops: [{ id: "s_a_3", rate: 0.22 }, { id: "s_a_2", rate: 0.25 }] },
+    { name: "ダークエルフ術師", icon: "🧝", lv: 9, hp: 135, atk: 22, def: 15, mag: 38, eva: 12, exp: 110, gold: 78, res: { 闇: 0.3, 氷: 0.2 }, abilities: ["elem_闇", "debuff_player"], drops: [{ id: "s_w_4", rate: 0.20 }, { id: "s_c_3", rate: 0.18 }] },
+    { name: "トレントエルダー", icon: "🌳", lv: 11, hp: 210, atk: 38, def: 24, mag: 32, eva: 4, exp: 135, gold: 90, res: { 氷: 0.25 }, abilities: ["heal_self", "status_poison"], drops: [{ id: "s_a_3", rate: 0.22 }, { id: "s_c_4", rate: 0.18 }] }
+  ],
+  // 鎧の墓場: 22種類の多彩なアンデッド・英霊・鎧騎士モンスター
+  graveyard: [
+    { name: "彷徨う錆び鎧", icon: "🛡️", lv: 4, hp: 95, atk: 22, def: 16, mag: 8, eva: 4, exp: 55, gold: 35, res: {}, abilities: ["buff_def"], drops: [{ id: "s_w_1", rate: 0.45 }, { id: "s_a_2", rate: 0.45 }, { id: "s_a_3", rate: 0.15 }] },
+    { name: "骸骨剣士", icon: "💀", lv: 5, hp: 110, atk: 27, def: 14, mag: 10, eva: 8, exp: 65, gold: 40, res: { 闇: 0.2 }, abilities: ["double_strike"], drops: [{ id: "s_w_1", rate: 0.40 }, { id: "s_w_3", rate: 0.25 }] },
+    { name: "呪われた従者", icon: "👻", lv: 6, hp: 125, atk: 24, def: 15, mag: 26, eva: 12, exp: 78, gold: 46, res: { 闇: 0.3 }, abilities: ["debuff_player"], drops: [{ id: "s_a_1", rate: 0.40 }, { id: "s_c_1", rate: 0.35 }] },
+    { name: "墓守の猟犬", icon: "🐕", lv: 7, hp: 145, atk: 34, def: 16, mag: 12, eva: 14, exp: 92, gold: 52, res: {}, abilities: ["double_strike"], drops: [{ id: "s_w_3", rate: 0.45 }, { id: "s_c_2", rate: 0.35 }] },
+    { name: "灰被りの槍兵", icon: "🔱", lv: 8, hp: 170, atk: 38, def: 22, mag: 14, eva: 7, exp: 110, gold: 60, res: { 炎: 0.2 }, abilities: ["aoe_heavy"], drops: [{ id: "s_a_3", rate: 0.35 }, { id: "s_w_3", rate: 0.30 }] },
+    { name: "怨念の魔導鎧", icon: "🔮", lv: 9, hp: 185, atk: 26, def: 24, mag: 42, eva: 6, exp: 130, gold: 70, res: { 魔法耐性: 0.25 }, abilities: ["elem_闇", "buff_def"], drops: [{ id: "s_w_4", rate: 0.35 }, { id: "s_a_5", rate: 0.35 }] },
+    { name: "氷棺の騎士", icon: "❄️", lv: 11, hp: 230, atk: 46, def: 30, mag: 36, eva: 8, exp: 165, gold: 85, res: { 氷: 0.5 }, abilities: ["elem_氷", "status_freeze"], drops: [{ id: "s_w_5", rate: 0.38 }, { id: "s_c_4", rate: 0.32 }] },
+    { name: "雷纏いの亡霊武者", icon: "⚡", lv: 12, hp: 245, atk: 52, def: 26, mag: 40, eva: 15, exp: 185, gold: 95, res: { 雷: 0.5 }, abilities: ["elem_雷", "double_strike"], drops: [{ id: "s_a_4", rate: 0.38 }, { id: "s_c_5", rate: 0.32 }] },
+    { name: "血塗られた処刑人", icon: "🪓", lv: 14, hp: 310, atk: 66, def: 32, mag: 20, eva: 6, exp: 230, gold: 115, res: { 闇: 0.3 }, abilities: ["aoe_heavy", "debuff_player"], drops: [{ id: "s_w_6", rate: 0.32 }, { id: "s_c_8", rate: 0.25 }] },
+    { name: "古王国の近衛騎士", icon: "⚔️", lv: 15, hp: 340, atk: 64, def: 44, mag: 30, eva: 10, exp: 260, gold: 130, res: { 光: 0.3 }, abilities: ["buff_def", "double_strike"], drops: [{ id: "s_w_6", rate: 0.35 }, { id: "s_a_6", rate: 0.30 }] },
+    { name: "影渡りの暗殺霊", icon: "🗡️", lv: 16, hp: 290, atk: 70, def: 28, mag: 35, eva: 22, exp: 285, gold: 140, res: { 闇: 0.4 }, abilities: ["double_strike", "status_poison"], drops: [{ id: "s_w_8", rate: 0.32 }, { id: "s_a_7", rate: 0.30 }, { id: "s_c_7", rate: 0.28 }] },
+    { name: "大魔導の骸骨卿", icon: "🧙", lv: 18, hp: 360, atk: 38, def: 36, mag: 78, eva: 10, exp: 340, gold: 165, res: { 魔法耐性: 0.35 }, abilities: ["elem_雷", "heal_self"], drops: [{ id: "s_w_7", rate: 0.35 }, { id: "s_c_6", rate: 0.32 }] },
+    { name: "デュラハン・ロード", icon: "🏇", lv: 20, hp: 450, atk: 84, def: 48, mag: 45, eva: 12, exp: 410, gold: 195, res: { 闇: 0.4, 炎: 0.25 }, abilities: ["aoe_heavy", "status_curse"], drops: [{ id: "s_w_6", rate: 0.35 }, { id: "s_a_6", rate: 0.35 }, { id: "s_w_10", rate: 0.08 }] },
+    { name: "黒曜の重装巨兵", icon: "🗿", lv: 22, hp: 560, atk: 90, def: 68, mag: 30, eva: 3, exp: 480, gold: 220, res: { 炎: 0.3, 氷: 0.3, 雷: 0.3 }, abilities: ["buff_def", "aoe_heavy"], drops: [{ id: "s_a_6", rate: 0.40 }, { id: "s_a_8", rate: 0.12 }] },
+    { name: "紅蓮の堕ちた聖騎士", icon: "🔥", lv: 24, hp: 590, atk: 98, def: 56, mag: 72, eva: 11, exp: 560, gold: 255, res: { 光: 0.4, 炎: 0.4 }, abilities: ["elem_炎", "heal_self", "double_strike"], drops: [{ id: "s_w_9", rate: 0.16 }, { id: "s_a_9", rate: 0.14 }] },
+    { name: "深淵の吸血伯爵", icon: "🧛", lv: 26, hp: 620, atk: 102, def: 52, mag: 95, eva: 18, exp: 650, gold: 290, res: { 闇: 0.5 }, abilities: ["heal_self", "status_curse", "debuff_player"], drops: [{ id: "s_c_9", rate: 0.22 }, { id: "s_w_10", rate: 0.15 }] },
+    { name: "星詠みの大賢者霊", icon: "🌌", lv: 28, hp: 640, atk: 60, def: 58, mag: 118, eva: 14, exp: 740, gold: 330, res: { 魔法耐性: 0.4 }, abilities: ["aoe_heavy", "buff_def", "elem_光"], drops: [{ id: "s_c_10", rate: 0.22 }, { id: "s_c_6", rate: 0.40 }] },
+    { name: "竜殺しの英雄の亡霊", icon: "🐉", lv: 30, hp: 780, atk: 124, def: 68, mag: 75, eva: 15, exp: 860, gold: 380, res: { 炎: 0.35, 氷: 0.35 }, abilities: ["double_strike", "aoe_heavy"], drops: [{ id: "s_a_8", rate: 0.24 }, { id: "s_w_9", rate: 0.20 }, { id: "s_w_12", rate: 0.06 }] },
+    { name: "漆黒の魔剣士ゼクス", icon: "🌑", lv: 33, hp: 890, atk: 138, def: 74, mag: 96, eva: 19, exp: 1020, gold: 440, res: { 闇: 0.55, 魔法耐性: 0.25 }, abilities: ["double_strike", "status_curse", "debuff_player"], drops: [{ id: "s_w_10", rate: 0.28 }, { id: "s_c_9", rate: 0.24 }, { id: "s_a_10", rate: 0.06 }] },
+    { name: "白銀の熾天使鎧", icon: "👼", lv: 35, hp: 960, atk: 130, def: 86, mag: 125, eva: 16, exp: 1180, gold: 500, res: { 光: 0.6, 闇: 0.3 }, abilities: ["elem_光", "heal_self", "buff_def"], drops: [{ id: "s_a_9", rate: 0.30 }, { id: "s_w_9", rate: 0.26 }, { id: "s_w_11", rate: 0.07 }] },
+    { name: "輪廻の番人・アストラル", icon: "⏳", lv: 38, hp: 1150, atk: 152, def: 92, mag: 148, eva: 20, exp: 1450, gold: 600, res: { 魔法耐性: 0.35 }, abilities: ["aoe_heavy", "status_freeze", "debuff_player"], drops: [{ id: "s_c_11", rate: 0.14 }, { id: "s_w_11", rate: 0.12 }, { id: "s_c_10", rate: 0.35 }] },
+    { name: "不滅の古王ギルガメッシュ", icon: "👑", lv: 42, hp: 1420, atk: 176, def: 108, mag: 162, eva: 17, exp: 1850, gold: 750, res: { 炎: 0.3, 氷: 0.3, 雷: 0.3, 光: 0.3, 闇: 0.3 }, abilities: ["aoe_heavy", "double_strike", "buff_def", "heal_self"], drops: [{ id: "s_a_10", rate: 0.18 }, { id: "s_w_12", rate: 0.16 }, { id: "s_c_11", rate: 0.15 }] }
+  ],
+  bonus: [
+    { name: "ゴールデンスライム", icon: "✨", lv: 12, hp: 260, atk: 55, def: 85, mag: 60, eva: 24, exp: 420, gold: 450, res: { 魔法耐性: 0.5 }, abilities: ["heal_self", "double_strike"], drops: [{ id: "s_c_6", rate: 0.45 }, { id: "s_c_8", rate: 0.45 }, { id: "s_c_10", rate: 0.18 }] },
+    { name: "ミスリルガーディアン", icon: "🤖", lv: 20, hp: 580, atk: 95, def: 75, mag: 70, eva: 10, exp: 780, gold: 600, res: { 炎: 0.4, 氷: 0.4, 雷: 0.4 }, abilities: ["aoe_heavy", "buff_def"], drops: [{ id: "s_a_6", rate: 0.50 }, { id: "s_a_8", rate: 0.25 }, { id: "s_a_10", rate: 0.08 }] },
+    { name: "プラチナフェニックス", icon: "🦅", lv: 30, hp: 920, atk: 138, def: 78, mag: 145, eva: 22, exp: 1400, gold: 950, res: { 炎: 0.6, 光: 0.4 }, abilities: ["elem_炎", "heal_self", "aoe_heavy"], drops: [{ id: "s_w_9", rate: 0.35 }, { id: "s_c_11", rate: 0.15 }, { id: "s_w_11", rate: 0.12 }] }
+  ],
+  clocktower: [
+    { name: "クロノ・オートマタ", icon: "⚙️", lv: 16, hp: 380, atk: 72, def: 46, mag: 64, eva: 12, exp: 340, gold: 180, res: { 雷: 0.35 }, abilities: ["double_strike", "status_freeze"], drops: [{ id: "s_c_6", rate: 0.30 }, { id: "s_w_7", rate: 0.30 }] },
+    { name: "パラドックス・レイス", icon: "🕰️", lv: 24, hp: 620, atk: 96, def: 54, mag: 112, eva: 20, exp: 640, gold: 310, res: { 魔法耐性: 0.4, 闇: 0.4 }, abilities: ["status_freeze", "debuff_player", "aoe_heavy"], drops: [{ id: "s_c_10", rate: 0.25 }, { id: "s_c_11", rate: 0.12 }] },
+    { name: "刻の支配者クロノス", icon: "⌛", lv: 34, hp: 1080, atk: 148, def: 84, mag: 158, eva: 18, exp: 1350, gold: 580, res: { 魔法耐性: 0.35, 光: 0.3 }, abilities: ["aoe_heavy", "status_freeze", "heal_self", "double_strike"], drops: [{ id: "s_w_11", rate: 0.24 }, { id: "s_c_11", rate: 0.22 }] }
+  ],
+  dragon_grave: [
+    { name: "ボーンワイバーン", icon: "🦴", lv: 18, hp: 440, atk: 86, def: 44, mag: 58, eva: 14, exp: 400, gold: 210, res: { 闇: 0.35 }, abilities: ["aoe_heavy", "status_poison"], drops: [{ id: "s_w_6", rate: 0.30 }, { id: "s_a_8", rate: 0.14 }] },
+    { name: "フロスト古竜", icon: "🐲", lv: 27, hp: 790, atk: 122, def: 68, mag: 118, eva: 10, exp: 840, gold: 410, res: { 氷: 0.65, 魔法耐性: 0.25 }, abilities: ["elem_氷", "aoe_heavy", "buff_def"], drops: [{ id: "s_a_8", rate: 0.30 }, { id: "s_w_12", rate: 0.10 }] },
+    { name: "終焉の黒竜バハムート", icon: "🐉", lv: 36, hp: 1260, atk: 168, def: 96, mag: 155, eva: 13, exp: 1550, gold: 680, res: { 炎: 0.5, 闇: 0.5, 魔法耐性: 0.3 }, abilities: ["aoe_heavy", "elem_炎", "double_strike", "debuff_player"], drops: [{ id: "s_w_12", rate: 0.26 }, { id: "s_a_10", rate: 0.16 }] }
+  ]
+};
+
+const FOUR_GENERALS = [
+  {
+    id: "gen_fire",
+    name: "四将・紅蓮のイグニス",
+    icon: "🔥👹",
+    lv: 22,
+    hp: 750,
+    atk: 105,
+    def: 55,
+    mag: 95,
+    eva: 10,
+    exp: 800,
+    gold: 400,
+    res: { 炎: 0.7, 氷: -0.2 },
+    abilities: ["elem_炎", "aoe_heavy", "double_strike"],
+    desc: "燃え盛る業火を操る猛将。連続攻撃と強力な炎の全体攻撃を得意とする。",
+    drops: [{ id: "s_w_9", rate: 0.6 }, { id: "s_c_3", rate: 1.0 }]
+  },
+  {
+    id: "gen_ice",
+    name: "四将・氷結のコキュートス",
+    icon: "❄️👑",
+    lv: 25,
+    hp: 880,
+    atk: 98,
+    def: 72,
+    mag: 115,
+    eva: 12,
+    exp: 980,
+    gold: 480,
+    res: { 氷: 0.7, 炎: -0.2 },
+    abilities: ["elem_氷", "buff_def", "status_freeze"],
+    desc: "絶対零度の鎧を纏う冷徹な知将。高い防御力と凍結魔法で動きを封じる。",
+    drops: [{ id: "s_a_8", rate: 0.6 }, { id: "s_c_4", rate: 1.0 }]
+  },
+  {
+    id: "gen_thun",
+    name: "四将・迅雷のヴォルト",
+    icon: "⚡🦅",
+    lv: 28,
+    hp: 960,
+    atk: 124,
+    def: 62,
+    mag: 120,
+    eva: 22,
+    exp: 1180,
+    gold: 560,
+    res: { 雷: 0.7, 魔法耐性: 0.25 },
+    abilities: ["elem_雷", "double_strike", "status_para"],
+    desc: "音速で戦場を駆ける雷将。高い回避率と麻痺を伴う電撃連打が脅威。",
+    drops: [{ id: "s_a_7", rate: 0.7 }, { id: "s_c_5", rate: 1.0 }]
+  },
+  {
+    id: "gen_dark",
+    name: "四将・深淵のモルガン",
+    icon: "🌑🧙‍♀️",
+    lv: 31,
+    hp: 1120,
+    atk: 112,
+    def: 68,
+    mag: 145,
+    eva: 15,
+    exp: 1400,
+    gold: 650,
+    res: { 闇: 0.7, 光: -0.2, 魔法耐性: 0.35 },
+    abilities: ["elem_闇", "debuff_player", "heal_self", "status_curse"],
+    desc: "四将筆頭の暗黒大魔導。能力低下・呪い・自己再生を駆使して冒険者を追い詰める。",
+    drops: [{ id: "s_w_10", rate: 0.65 }, { id: "s_c_9", rate: 0.65 }]
+  }
+];
+
+const DEMON_LORD = {
+  id: "demon_lord",
+  name: "輪廻の魔王クロノヴァル",
+  icon: "👿👑",
+  lv: 38,
+  hp: 2200,
+  atk: 165,
+  def: 98,
+  mag: 175,
+  eva: 15,
+  exp: 5000,
+  gold: 2000,
+  res: { 炎: 0.25, 氷: 0.25, 雷: 0.25, 闇: 0.45, 魔法耐性: 0.3 },
+  abilities: ["aoe_heavy", "double_strike", "debuff_player", "heal_self", "status_curse", "chrono_distort"],
+  desc: "6日間の時間巻き戻しを引き起こしていた元凶。時空歪曲と破滅の魔力を操る。",
+  drops: [{ id: "s_c_12", rate: 1.0 }, { id: "s_w_11", rate: 0.5 }]
+};
+
+const ENDING_EXACT_TEXT = `ENDING — 輪廻の終わり
+
+魔王は時を巻き戻す力を失った。王都には朝が訪れ、薬草も装備も消えない。
+
+王様「勇者よ、今度こそ本当の旅立ちじゃ！」
+
+世界は自由な明日を取り戻した。
+
+ハッピーエンド！`;
+
+/* ==========================================================================
+   GAME ENGINE & STATE MANAGEMENT
+   ========================================================================== */
+const SAVE_KEY = "parallel_quest_save_v1";
+
+const Game = {
+  state: null,
+  currentTab: "home",
+  magicFilter: "all",
+  soulFilter: "all",
+  battle: null,
+
+  createInitialState() {
+    return {
+      loopCount: 1,
+      day: 1,
+      maxDays: 6,
+      lv: 1,
+      exp: 0,
+      baseMaxHp: 110,
+      baseMaxMp: 35,
+      baseAtk: 16,
+      baseDef: 10,
+      baseMag: 14,
+      baseCrit: 5,
+      baseEva: 4,
+      hp: 110,
+      mp: 35,
+      gold: 50,
+      learnedSpells: ["m_fire_1", "m_light_1"],
+      equippedSpells: ["m_fire_1", "m_light_1", null, null, null, null, null, null],
+      ownedSouls: ["s_w_1", "s_a_1"],
+      equippedSouls: {
+        weapon: "s_w_1",
+        armor: "s_a_1",
+        acc1: null,
+        acc2: null
+      },
+      inventory: {
+        item_hp_s: 2
+      },
+      defeatedGenerals: [],
+      demonLordDefeated: false,
+      gameCleared: false,
+      clearLevel: null,
+      clearLoop: null,
+      logs: [
+        { type: "system", text: "【第1周目・1日目】王都アルカディアにて輪廻の旅が始まった。" }
+      ]
+    };
+  },
+
+  init() {
+    const saved = this.loadFromStorage();
+    if (saved) {
+      document.getElementById("btn-continue").style.display = "inline-flex";
+    }
+  },
+
+  loadFromStorage() {
+    try {
+      const raw = localStorage.getItem(SAVE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== "object" || typeof parsed.lv !== "number") return null;
+      const base = this.createInitialState();
+      const merged = Object.assign(base, parsed);
+      // Sanitize arrays & objects against corruption
+      if (!Array.isArray(merged.learnedSpells) || merged.learnedSpells.length === 0) {
+        merged.learnedSpells = ["m_fire_1", "m_light_1"];
+      }
+      if (!Array.isArray(merged.equippedSpells) || merged.equippedSpells.length !== 8) {
+        merged.equippedSpells = ["m_fire_1", "m_light_1", null, null, null, null, null, null];
+      }
+      if (!Array.isArray(merged.ownedSouls)) merged.ownedSouls = [];
+      if (!merged.equippedSouls || typeof merged.equippedSouls !== "object") {
+        merged.equippedSouls = { weapon: null, armor: null, acc1: null, acc2: null };
+      }
+      if (!merged.inventory || typeof merged.inventory !== "object") merged.inventory = {};
+      if (!Array.isArray(merged.defeatedGenerals)) merged.defeatedGenerals = [];
+      if (!Array.isArray(merged.logs)) merged.logs = [];
+      return merged;
+    } catch (e) {
+      console.warn("Save data corrupted, fallback to safe start.", e);
+      return null;
+    }
+  },
+
+  saveGame() {
+    try {
+      if (!this.state) return;
+      localStorage.setItem(SAVE_KEY, JSON.stringify(this.state));
+    } catch (e) {
+      console.error("Failed to save game", e);
+    }
+  },
+
+  continueGame() {
+    const loaded = this.loadFromStorage();
+    if (loaded) {
+      this.state = loaded;
+    } else {
+      this.state = this.createInitialState();
+    }
+    this.enterGameShell();
+  },
+
+  startNewGame() {
+    this.state = this.createInitialState();
+    this.saveGame();
+    this.enterGameShell();
+  },
+
+  confirmHardReset() {
+    this.openModal(`
+      <div class="modal-title">⚠️ セーブデータの初期化</div>
+      <p>すべての周回データ、レベル、魔法、ソウルを完全に消去して最初からやり直しますか？</p>
+      <div style="display:flex; gap:10px; margin-top:16px;">
+        <button class="btn btn-danger" onclick="localStorage.removeItem('${SAVE_KEY}'); location.reload();">完全に初期化する</button>
+        <button class="btn" onclick="Game.closeModal()">キャンセル</button>
+      </div>
+    `);
+  },
+
+  enterGameShell() {
+    document.getElementById("title-screen").style.display = "none";
+    document.getElementById("game-shell").style.display = "flex";
+    const stats = this.getComputedStats();
+    if (this.state.hp > stats.maxHp) this.state.hp = stats.maxHp;
+    if (this.state.mp > stats.maxMp) this.state.mp = stats.maxMp;
+    this.updateTopBar();
+    this.switchTab("home");
+  },
+
+  addLog(type, text) {
+    this.state.logs.unshift({
+      type,
+      text: `[第${this.state.loopCount}周・${this.state.day}日目] ${text}`
+    });
+    if (this.state.logs.length > 80) this.state.logs.pop();
+  },
+
+  /* ========================================================================
+     STATS & EQUIPMENT COMPUTATION
+     ======================================================================== */
+  getSoulById(id) {
+    return SOULS.find(s => s.id === id) || null;
+  },
+
+  getSpellById(id) {
+    return SPELLS.find(s => s.id === id) || null;
+  },
+
+  getEquippedSoulObjects() {
+    const eq = this.state.equippedSouls;
+    return [eq.weapon, eq.armor, eq.acc1, eq.acc2]
+      .map(id => this.getSoulById(id))
+      .filter(Boolean);
+  },
+
+  getComputedStats(customEquipped = null) {
+    const s = this.state;
+    const eqMap = customEquipped || s.equippedSouls;
+    const souls = [eqMap.weapon, eqMap.armor, eqMap.acc1, eqMap.acc2]
+      .map(id => this.getSoulById(id))
+      .filter(Boolean);
+
+    let maxHp = s.baseMaxHp;
+    let maxMp = s.baseMaxMp;
+    let atk = s.baseAtk;
+    let def = s.baseDef;
+    let mag = s.baseMag;
+    let crit = s.baseCrit;
+    let eva = s.baseEva;
+
+    const effects = {
+      bonusDmg: 0,
+      magicBoost: 0,
+      critDmg: 0,
+      lifesteal: 0,
+      counterOnEva: false,
+      counterMult: 1.0,
+      lowHpDef: 0,
+      statusRes: 0,
+      startAtk: 0,
+      startDef: 0,
+      startMag: 0,
+      mpRegen: 0,
+      hpRegen: 0,
+      mpCostRed: 0,
+      elemBoost: { 炎: 0, 氷: 0, 雷: 0, 光: 0, 闇: 0, 無属性: 0 },
+      elemRes: { 炎: 0, 氷: 0, 雷: 0, 光: 0, 闇: 0, 無属性: 0 }
+    };
+
+    for (const soul of souls) {
+      if (soul.hp) maxHp += soul.hp;
+      if (soul.mp) maxMp += soul.mp;
+      if (soul.atk) atk += soul.atk;
+      if (soul.def) def += soul.def;
+      if (soul.mag) mag += soul.mag;
+      if (soul.crit) crit += soul.crit;
+      if (soul.eva) eva += soul.eva;
+
+      const ef = soul.effect || {};
+      if (ef.bonusDmg) effects.bonusDmg += ef.bonusDmg;
+      if (ef.magicBoost) effects.magicBoost += ef.magicBoost;
+      if (ef.critDmg) effects.critDmg += ef.critDmg;
+      if (ef.lifesteal) effects.lifesteal += ef.lifesteal;
+      if (ef.counterOnEva) {
+        effects.counterOnEva = true;
+        effects.counterMult = Math.max(effects.counterMult, ef.counterMult || 1.0);
+      }
+      if (ef.lowHpDef) effects.lowHpDef = Math.max(effects.lowHpDef, ef.lowHpDef);
+      if (ef.statusRes) effects.statusRes = Math.min(1.0, effects.statusRes + ef.statusRes);
+      if (ef.startAtk) effects.startAtk += ef.startAtk;
+      if (ef.startDef) effects.startDef += ef.startDef;
+      if (ef.startMag) effects.startMag += ef.startMag;
+      if (ef.mpRegen) effects.mpRegen += ef.mpRegen;
+      if (ef.hpRegen) effects.hpRegen += ef.hpRegen;
+      if (ef.mpCostRed) effects.mpCostRed = Math.min(0.5, effects.mpCostRed + ef.mpCostRed);
+
+      if (ef.elemBoost) {
+        for (const k of Object.keys(ef.elemBoost)) {
+          effects.elemBoost[k] = (effects.elemBoost[k] || 0) + ef.elemBoost[k];
+        }
+      }
+      if (ef.elemRes) {
+        for (const k of Object.keys(ef.elemRes)) {
+          effects.elemRes[k] = Math.min(0.8, (effects.elemRes[k] || 0) + ef.elemRes[k]);
+        }
+      }
+      if (ef.allElemRes) {
+        for (const k of Object.keys(effects.elemRes)) {
+          effects.elemRes[k] = Math.min(0.8, (effects.elemRes[k] || 0) + ef.allElemRes);
+        }
+      }
+    }
+
+    // Cap evasion rate at 65% so 100% invincible builds cannot occur
+    eva = Math.min(65, Math.max(0, eva));
+    crit = Math.min(85, Math.max(0, crit));
+
+    return { maxHp, maxMp, atk, def, mag, crit, eva, effects };
+  },
+
+  getNextExp(lv) {
+    return Math.floor(35 * Math.pow(lv, 1.48));
+  },
+
+  gainExp(amount) {
+    this.state.exp += amount;
+    let leveledUp = 0;
+    while (this.state.exp >= this.getNextExp(this.state.lv)) {
+      this.state.exp -= this.getNextExp(this.state.lv);
+      this.state.lv += 1;
+      leveledUp++;
+      this.state.baseMaxHp += 18 + Math.floor(this.state.lv * 1.5);
+      this.state.baseMaxMp += 6 + Math.floor(this.state.lv * 0.6);
+      this.state.baseAtk += 4 + Math.floor(this.state.lv * 0.35);
+      this.state.baseDef += 3 + Math.floor(this.state.lv * 0.25);
+      this.state.baseMag += 4 + Math.floor(this.state.lv * 0.35);
+      if (this.state.lv % 4 === 0 && this.state.baseCrit < 25) this.state.baseCrit += 1;
+      if (this.state.lv % 5 === 0 && this.state.baseEva < 15) this.state.baseEva += 1;
+    }
+
+    const newlyLearned = this.checkSpellUnlocks();
+
+    if (leveledUp > 0) {
+      const stats = this.getComputedStats();
+      this.state.hp = Math.min(stats.maxHp, this.state.hp + Math.floor(stats.maxHp * 0.6));
+      this.state.mp = Math.min(stats.maxMp, this.state.mp + Math.floor(stats.maxMp * 0.6));
+      this.addLog("level", `レベルが Lv.${this.state.lv} に上がった！`);
+    }
+    return { leveledUp, newlyLearned };
+  },
+
+  checkSpellUnlocks(contextTag = null) {
+    const unlocked = [];
+    const lv = this.state.lv;
+    const reqMap = {
+      m_ice_1: lv >= 2, m_neu_1: lv >= 2,
+      m_thun_1: lv >= 3, m_dark_1: lv >= 3,
+      m_fire_2: lv >= 4, m_light_2: lv >= 4,
+      m_ice_2: lv >= 5, m_dark_2: lv >= 5,
+      m_fire_3: lv >= 6, m_light_3: lv >= 6,
+      m_ice_3: lv >= 7, m_neu_2: lv >= 7,
+      m_thun_2: lv >= 8, m_neu_3: lv >= 8,
+      m_dark_3: lv >= 9,
+      m_fire_4: lv >= 10,
+      m_thun_3: lv >= 11, m_light_4: lv >= 11,
+      m_fire_8: lv >= 12, m_dark_4: lv >= 12,
+      m_ice_4: lv >= 13,
+      m_light_5: lv >= 14,
+      m_ice_7: lv >= 15, m_neu_4: lv >= 15,
+      m_thun_4: lv >= 16,
+      m_dark_5: lv >= 17,
+      m_fire_5: lv >= 18,
+      m_light_6: lv >= 19,
+      m_ice_5: lv >= 20,
+      m_thun_5: lv >= 23,
+      m_dark_6: lv >= 24,
+      m_light_7: lv >= 25,
+      m_neu_6: lv >= 26,
+      m_fire_6: lv >= 28,
+      m_ice_6: lv >= 30,
+      m_thun_6: lv >= 32,
+      m_dark_7: lv >= 33,
+      m_light_8: lv >= 35,
+      m_neu_8: lv >= 40,
+      m_neu_5: contextTag === "clocktower",
+      m_thun_7: contextTag === "clocktower",
+      m_ice_8: contextTag === "clocktower",
+      m_neu_7: contextTag === "clocktower" && this.state.loopCount >= 2,
+      m_fire_7: contextTag === "dragon_grave" || contextTag === "demon_castle",
+      m_thun_8: contextTag === "four_generals",
+      m_dark_8: contextTag === "demon_castle" || contextTag === "demon_lord"
+    };
+
+    for (const sp of SPELLS) {
+      if (!this.state.learnedSpells.includes(sp.id) && reqMap[sp.id]) {
+        this.state.learnedSpells.push(sp.id);
+        unlocked.push(sp);
+        this.addLog("magic", `新魔法【${sp.name}】を習得した！`);
+        // Auto-equip if there is an empty slot
+        const emptyIdx = this.state.equippedSpells.indexOf(null);
+        if (emptyIdx !== -1) {
+          this.state.equippedSpells[emptyIdx] = sp.id;
+        }
+      }
+    }
+    return unlocked;
+  },
+
+  /* ========================================================================
+     TIME REWIND SYSTEM (6-Day Limit & Death Rewind)
+     ======================================================================== */
+  advanceDay(days = 1) {
+    this.state.day += days;
+    this.updateTopBar();
+    if (this.state.day > this.state.maxDays) {
+      this.triggerTimeRewind("time_limit");
+      return true;
+    }
+    return false;
+  },
+
+  triggerTimeRewind(reason) {
+    // End any active battle
+    this.battle = null;
+
+    const prevLoop = this.state.loopCount;
+    const lostGold = this.state.gold;
+    const lostItemsCount = Object.values(this.state.inventory).reduce((a, b) => a + b, 0);
+
+    // Carry over: lv, exp, base stats, learnedSpells, equippedSpells, ownedSouls, equippedSouls, clear status
+    // Reset: gold, day (to 1), inventory (temporary items), defeatedGenerals (boss progress in loop)
+    this.state.loopCount = prevLoop + 1;
+    this.state.day = 1;
+    this.state.gold = 0;
+    this.state.inventory = {};
+    this.state.defeatedGenerals = [];
+
+    const stats = this.getComputedStats();
+    this.state.hp = stats.maxHp;
+    this.state.mp = stats.maxMp;
+
+    if (reason === "death") {
+      this.state.logs.unshift({
+        type: "rewind_death",
+        text: `【死亡による時間巻き戻し】力尽きたことで世界の時間が巻き戻った！（第${prevLoop}周目 → 第${this.state.loopCount}周目 / 所持金${lostGold}G・一時アイテム消滅）`
+      });
+      this.saveGame();
+      this.updateTopBar();
+      this.switchTab("home");
+      this.openModal(`
+        <div class="modal-title" style="color:var(--accent-red);">💀 死亡による時間の巻き戻し</div>
+        <p>冒険者は戦いに敗れ、命を落とした……。</p>
+        <p>しかし、魂に刻まれた記憶と「ソウル」は失われず、世界は再び<strong>1日目（第${this.state.loopCount}周目）</strong>へと巻き戻った！</p>
+        <div class="card" style="background:#0e1118; font-size:13px;">
+          <div style="color:var(--accent-green); font-weight:700; margin-bottom:4px;">✔ 引き継がれた力</div>
+          <div>・レベル (Lv.${this.state.lv}) / 習得・装備魔法</div>
+          <div>・獲得・装備中のソウル（${this.state.ownedSouls.length}個）</div>
+          <div style="color:var(--accent-red); font-weight:700; margin:8px 0 4px 0;">✖ 巻き戻しで失われたもの</div>
+          <div>・所持ゴールド（${lostGold}G → 0G）</div>
+          <div>・一時アイテム（${lostItemsCount}個消滅）・四将の討伐状態</div>
+        </div>
+        <button class="btn btn-danger" onclick="Game.closeModal()">第${this.state.loopCount}周目を始める</button>
+      `);
+    } else {
+      this.state.logs.unshift({
+        type: "rewind_time",
+        text: `【通常の時間巻き戻し】6日間が経過し、世界の理により時間が巻き戻った！（第${prevLoop}周目 → 第${this.state.loopCount}周目 / 所持金${lostGold}G・一時アイテム消滅）`
+      });
+      this.saveGame();
+      this.updateTopBar();
+      this.switchTab("home");
+      this.openModal(`
+        <div class="modal-title" style="color:var(--accent-purple);">⏳ 6日経過・通常の時間巻き戻し</div>
+        <p>世界に定められた<strong>6日間</strong>の刻が満ち、鐘の音と共に時間が巻き戻った！</p>
+        <p>世界は再び<strong>1日目（第${this.state.loopCount}周目）</strong>の朝を迎える。</p>
+        <div class="card" style="background:#0e1118; font-size:13px;">
+          <div style="color:var(--accent-green); font-weight:700; margin-bottom:4px;">✔ 引き継がれた力</div>
+          <div>・レベル (Lv.${this.state.lv}) / 習得・装備魔法</div>
+          <div>・獲得・装備中のソウル（${this.state.ownedSouls.length}個）</div>
+          <div style="color:var(--accent-red); font-weight:700; margin:8px 0 4px 0;">✖ 巻き戻しで失われたもの</div>
+          <div>・所持ゴールド（${lostGold}G → 0G）</div>
+          <div>・一時アイテム（${lostItemsCount}個消滅）・四将の討伐状態</div>
+        </div>
+        <button class="btn btn-purple" onclick="Game.closeModal()">新たな6日間へ挑む</button>
+      `);
+    }
+  },
+
+  /* ========================================================================
+     UI NAVIGATION & RENDERING
+     ======================================================================== */
+  updateTopBar() {
+    if (!this.state) return;
+    const stats = this.getComputedStats();
+    document.getElementById("ui-loop").textContent = `第${this.state.loopCount}周目`;
+    const dayEl = document.getElementById("ui-day");
+    dayEl.textContent = `${this.state.day}日目 / ${this.state.maxDays}日`;
+    if (this.state.day >= 5) dayEl.classList.add("danger");
+    else dayEl.classList.remove("danger");
+
+    document.getElementById("ui-lv").textContent = `Lv.${this.state.lv}`;
+    document.getElementById("ui-gold").textContent = `${this.state.gold} G`;
+
+    const hpPct = Math.max(0, Math.min(100, (this.state.hp / stats.maxHp) * 100));
+    const mpPct = Math.max(0, Math.min(100, (this.state.mp / stats.maxMp) * 100));
+    document.getElementById("ui-hp-bar").style.width = hpPct + "%";
+    document.getElementById("ui-mp-bar").style.width = mpPct + "%";
+    document.getElementById("ui-hp-text").textContent = `${this.state.hp}/${stats.maxHp}`;
+    document.getElementById("ui-mp-text").textContent = `${this.state.mp}/${stats.maxMp}`;
+
+    const endBtn = document.getElementById("floating-ending-btn");
+    endBtn.style.display = this.state.gameCleared ? "block" : "none";
+  },
+
+  switchTab(tab) {
+    if (this.battle && tab !== "battle") {
+      // Allow switching tabs only when not mid-turn or warn
+      this.openModal(`
+        <div class="modal-title">⚔️ 戦闘中です</div>
+        <p>現在モンスターと交戦中です。戦闘から逃走して画面を切り替えますか？</p>
+        <div style="display:flex; gap:10px;">
+          <button class="btn btn-danger" onclick="Game.fleeBattle(true, '${tab}')">逃走して移動</button>
+          <button class="btn" onclick="Game.closeModal()">戦闘に戻る</button>
+        </div>
+      `);
+      return;
+    }
+    this.currentTab = tab;
+    document.querySelectorAll(".nav-btn").forEach(btn => {
+      btn.classList.toggle("active", btn.dataset.tab === tab);
+    });
+    this.render();
+  },
+
+  render() {
+    const view = document.getElementById("main-view");
+    if (this.battle) {
+      this.renderBattle(view);
+      return;
+    }
+    switch (this.currentTab) {
+      case "home": this.renderHome(view); break;
+      case "map": this.renderMap(view); break;
+      case "magic": this.renderMagic(view); break;
+      case "soul": this.renderSoul(view); break;
+      case "log": this.renderLog(view); break;
+    }
+  },
+
+  /* ========================================================================
+     1. HOME / STATUS / TOWN SCREEN
+     ======================================================================== */
+  renderHome(view) {
+    const s = this.state;
+    const stats = this.getComputedStats();
+    const nextExp = this.getNextExp(s.lv);
+    const eqSouls = s.equippedSouls;
+    const wSoul = this.getSoulById(eqSouls.weapon);
+    const aSoul = this.getSoulById(eqSouls.armor);
+    const c1Soul = this.getSoulById(eqSouls.acc1);
+    const c2Soul = this.getSoulById(eqSouls.acc2);
+
+    const invEntries = Object.entries(s.inventory).filter(([, cnt]) => cnt > 0);
+
+    view.innerHTML = `
+      <div class="card">
+        <div class="card-title">
+          <span>🏰 王都アルカディア・拠点</span>
+          <span style="font-size:12px; color:var(--text-muted);">EXP: ${s.exp} / ${nextExp}</span>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px;">
+          <button class="btn btn-primary" onclick="Game.restAtInn()">🛏️ 宿屋で休む<br><span style="font-size:11px; font-weight:400;">HP/MP全快・1日経過</span></button>
+          <button class="btn btn-gold" onclick="Game.openShopModal()">🛒 道具屋ショップ<br><span style="font-size:11px; font-weight:400;">所持金: ${s.gold} G</span></button>
+        </div>
+        <button class="btn btn-purple btn-sm" style="width:100%;" onclick="Game.confirmManualRewind()">⏳ 自ら時間を巻き戻す（次の周回へ）</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <span>⚔️ 冒険者ステータス</span>
+          <span style="font-size:12px; color:var(--accent-purple);">総周回数: ${s.loopCount}周</span>
+        </div>
+        <div class="status-grid">
+          <div class="status-item"><span class="status-label">レベル</span><span class="status-val">Lv.${s.lv}</span></div>
+          <div class="status-item"><span class="status-label">次Lvまで</span><span class="status-val">${nextExp - s.exp}</span></div>
+          <div class="status-item"><span class="status-label">最大HP</span><span class="status-val" style="color:var(--accent-green);">${stats.maxHp}</span></div>
+          <div class="status-item"><span class="status-label">最大MP</span><span class="status-val" style="color:var(--accent-blue);">${stats.maxMp}</span></div>
+          <div class="status-item"><span class="status-label">攻撃力</span><span class="status-val">${stats.atk}</span></div>
+          <div class="status-item"><span class="status-label">防御力</span><span class="status-val">${stats.def}</span></div>
+          <div class="status-item"><span class="status-label">魔力</span><span class="status-val" style="color:var(--accent-purple);">${stats.mag}</span></div>
+          <div class="status-item"><span class="status-label">会心率</span><span class="status-val" style="color:var(--accent-gold);">${stats.crit}%</span></div>
+          <div class="status-item"><span class="status-label">回避率</span><span class="status-val" style="color:var(--accent-blue);">${stats.eva}%</span></div>
+          <div class="status-item"><span class="status-label">四将討伐</span><span class="status-val">${s.defeatedGenerals.length} / 4</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <span>💎 装備中のソウル（永続）</span>
+          <button class="btn btn-sm" onclick="Game.switchTab('soul')">変更</button>
+        </div>
+        <div style="font-size:13px; display:flex; flex-direction:column; gap:6px;">
+          <div><strong>【武器】</strong> ${wSoul ? `<span class="r-${wSoul.rarity}">${wSoul.name} [${wSoul.rarity}]</span>` : '<span style="color:var(--text-muted);">未装備</span>'}</div>
+          <div><strong>【防具】</strong> ${aSoul ? `<span class="r-${aSoul.rarity}">${aSoul.name} [${aSoul.rarity}]</span>` : '<span style="color:var(--text-muted);">未装備</span>'}</div>
+          <div><strong>【装飾1】</strong> ${c1Soul ? `<span class="r-${c1Soul.rarity}">${c1Soul.name} [${c1Soul.rarity}]</span>` : '<span style="color:var(--text-muted);">未装備</span>'}</div>
+          <div><strong>【装飾2】</strong> ${c2Soul ? `<span class="r-${c2Soul.rarity}">${c2Soul.name} [${c2Soul.rarity}]</span>` : '<span style="color:var(--text-muted);">未装備</span>'}</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <span>🎒 所持アイテム（周回で消滅）</span>
+          <span style="font-size:12px; color:var(--text-muted);">タップで使用</span>
+        </div>
+        ${invEntries.length === 0 ? '<div style="color:var(--text-muted); font-size:13px;">アイテムを所持していません。王都の道具屋で購入できます。</div>' :
+          invEntries.map(([id, cnt]) => {
+            const it = SHOP_ITEMS.find(x => x.id === id);
+            if (!it) return "";
+            const usableInField = it.type.startsWith("heal") || it.type === "cure_all";
+            return `
+              <div class="list-item">
+                <div class="list-item-info">
+                  <div class="list-item-title">${it.name} <span class="badge">x${cnt}</span></div>
+                  <div class="list-item-sub">${it.desc}</div>
+                </div>
+                ${usableInField ? `<button class="btn btn-sm btn-primary" onclick="Game.useFieldItem('${it.id}')">使う</button>` : '<span style="font-size:11px; color:var(--text-muted);">戦闘専用</span>'}
+              </div>
+            `;
+          }).join("")}
+      </div>
+    `;
+  },
+
+  restAtInn() {
+    const stats = this.getComputedStats();
+    this.state.hp = stats.maxHp;
+    this.state.mp = stats.maxMp;
+    this.addLog("system", "王都の宿屋で休息し、HPとMPが全回復した。");
+    const rewound = this.advanceDay(1);
+    if (!rewound) {
+      this.saveGame();
+      this.updateTopBar();
+      this.render();
+      this.openModal(`
+        <div class="modal-title">🛏️ 宿屋で休息</div>
+        <p>HPとMPが完全に回復しました！</p>
+        <p style="color:var(--accent-blue);">時間が1日経過しました。（現在 ${this.state.day}日目 / ${this.state.maxDays}日）</p>
+        <button class="btn btn-primary" onclick="Game.closeModal()">閉じる</button>
+      `);
+    }
+  },
+
+  confirmManualRewind() {
+    this.openModal(`
+      <div class="modal-title">⏳ 時間の巻き戻し確認</div>
+      <p>6日経過を待たずに、今すぐ時間を巻き戻して次の周回（第${this.state.loopCount + 1}周目）へ移行しますか？</p>
+      <p style="font-size:13px; color:var(--text-muted);">※レベル・魔法・ソウルは引き継がれ、ゴールド・アイテム・四将討伐状況はリセットされます。</p>
+      <div style="display:flex; gap:10px; margin-top:14px;">
+        <button class="btn btn-purple" onclick="Game.closeModal(); Game.triggerTimeRewind('time_limit');">巻き戻す</button>
+        <button class="btn" onclick="Game.closeModal()">キャンセル</button>
+      </div>
+    `);
+  },
+
+  openShopModal() {
+    const renderShopHTML = () => `
+      <div class="modal-title" style="display:flex; justify-content:space-between;">
+        <span>🛒 王都の道具屋</span>
+        <span style="color:var(--accent-gold);">${this.state.gold} G</span>
+      </div>
+      <p style="font-size:12px; color:var(--text-muted); margin-top:0;">※購入したアイテムは6日経過や死亡による巻き戻しで消滅します。</p>
+      ${SHOP_ITEMS.map(it => {
+        const owned = this.state.inventory[it.id] || 0;
+        const canBuy = this.state.gold >= it.price;
+        return `
+          <div class="list-item">
+            <div class="list-item-info">
+              <div class="list-item-title">${it.name} <span style="font-size:12px; color:var(--text-muted);">(所持:${owned})</span></div>
+              <div class="list-item-sub">${it.desc}</div>
+            </div>
+            <button class="btn btn-sm btn-gold" ${canBuy ? "" : "disabled"} onclick="Game.buyItem('${it.id}')">${it.price} G</button>
+          </div>
+        `;
+      }).join("")}
+      <button class="btn" style="margin-top:10px;" onclick="Game.closeModal(); Game.render();">店を出る</button>
+    `;
+    this.openModal(renderShopHTML());
+  },
+
+  buyItem(itemId) {
+    const it = SHOP_ITEMS.find(x => x.id === itemId);
+    if (!it || this.state.gold < it.price) return;
+    this.state.gold -= it.price;
+    this.state.inventory[itemId] = (this.state.inventory[itemId] || 0) + 1;
+    this.addLog("shop", `道具屋で「${it.name}」を ${it.price}G で購入した。`);
+    this.saveGame();
+    this.updateTopBar();
+    this.openShopModal();
+  },
+
+  useFieldItem(itemId) {
+    const cnt = this.state.inventory[itemId] || 0;
+    if (cnt <= 0) return;
+    const it = SHOP_ITEMS.find(x => x.id === itemId);
+    const stats = this.getComputedStats();
+    if (it.type === "heal_hp") {
+      this.state.hp = Math.min(stats.maxHp, this.state.hp + it.val);
+    } else if (it.type === "heal_hp_pct") {
+      this.state.hp = stats.maxHp;
+    } else if (it.type === "heal_mp") {
+      this.state.mp = Math.min(stats.maxMp, this.state.mp + it.val);
+    } else if (it.type === "cure_all") {
+      this.state.hp = Math.min(stats.maxHp, this.state.hp + it.val);
+    }
+    this.state.inventory[itemId] = cnt - 1;
+    this.saveGame();
+    this.updateTopBar();
+    this.render();
+  },
+
+  /* ========================================================================
+     2. MAP & EXPLORATION SCREEN
+     ======================================================================== */
+  renderMap(view) {
+    const s = this.state;
+    const allGeneralsDefeated = s.defeatedGenerals.length >= 4;
+
+    view.innerHTML = `
+      <div class="card" style="padding:10px 14px;">
+        <div style="font-size:13px; color:var(--text-muted);">
+          探索を行うと<strong>1日</strong>経過します。6日目を終えると時間が巻き戻ります。
+        </div>
+      </div>
+      ${AREAS.map(area => {
+        if (area.type === "town") {
+          return `
+            <div class="area-card">
+              <div class="area-header">
+                <span class="area-name">🏰 ${area.name}</span>
+                <span class="area-tag">${area.tag}</span>
+              </div>
+              <div style="font-size:13px; color:var(--text-muted); margin-bottom:10px;">${area.desc}</div>
+              <button class="btn btn-sm" onclick="Game.switchTab('home')">拠点画面へ移動</button>
+            </div>
+          `;
+        }
+
+        if (area.type === "four_generals") {
+          return `
+            <div class="area-card boss">
+              <div class="area-header">
+                <span class="area-name" style="color:var(--accent-red);">🔥 ${area.name}</span>
+                <span class="area-tag" style="color:var(--accent-red);">${area.tag} (${s.defeatedGenerals.length}/4討伐)</span>
+              </div>
+              <div style="font-size:13px; color:var(--text-muted); margin-bottom:10px;">${area.desc}</div>
+              <div style="display:flex; flex-direction:column; gap:6px;">
+                ${FOUR_GENERALS.map(gen => {
+                  const defeated = s.defeatedGenerals.includes(gen.id);
+                  return `
+                    <div style="display:flex; justify-content:space-between; align-items:center; background:#12151f; padding:8px 10px; border-radius:6px; border:1px solid #323b54;">
+                      <div>
+                        <div style="font-weight:700; font-size:14px;">${gen.icon} ${gen.name} <span style="font-size:12px; color:var(--text-muted);">(Lv.${gen.lv})</span></div>
+                        <div style="font-size:11px; color:var(--text-muted);">${gen.desc}</div>
+                      </div>
+                      ${defeated
+                        ? '<span class="badge" style="color:var(--accent-green);">討伐済</span>'
+                        : `<button class="btn btn-sm btn-danger" onclick="Game.startSpecificBattle('${gen.id}')">挑む</button>`}
+                    </div>
+                  `;
+                }).join("")}
+              </div>
+            </div>
+          `;
+        }
+
+        if (area.type === "demon_lord") {
+          return `
+            <div class="area-card boss">
+              <div class="area-header">
+                <span class="area-name" style="color:var(--accent-gold);">👑 ${area.name}</span>
+                <span class="area-tag" style="color:var(--accent-gold);">${area.tag}</span>
+              </div>
+              <div style="font-size:13px; color:var(--text-muted); margin-bottom:10px;">${area.desc}</div>
+              ${allGeneralsDefeated
+                ? `<button class="btn btn-gold" onclick="Game.startSpecificBattle('demon_lord')">⚔️ 魔王クロノヴァルに挑む（1日経過）</button>`
+                : `<button class="btn" disabled>🔒 封印中（四将を全員倒すと解放：残り${4 - s.defeatedGenerals.length}体）</button>`}
+            </div>
+          `;
+        }
+
+        return `
+          <div class="area-card ${area.special ? "special" : ""}">
+            <div class="area-header">
+              <span class="area-name" style="color:${area.id === "graveyard" ? "var(--accent-purple)" : "var(--text-main)"};">
+                ${area.id === "graveyard" ? "🪦 " : "⚔️ "}${area.name}
+              </span>
+              <span class="area-tag">${area.tag}</span>
+            </div>
+            <div style="font-size:13px; color:var(--text-muted); margin-bottom:10px;">${area.desc}</div>
+            <button class="btn ${area.id === "graveyard" ? "btn-purple" : "btn-primary"}" onclick="Game.exploreArea('${area.id}')">
+              探索に出発する（1日経過）
+            </button>
+          </div>
+        `;
+      }).join("")}
+    `;
+  },
+
+  exploreArea(areaId) {
+    const pool = ENEMIES[areaId];
+    if (!pool || pool.length === 0) return;
+
+    // Weight enemies loosely around player's level in graveyard so low level can also start farming, while higher level meets stronger foes
+    let candidates = pool;
+    if (areaId === "graveyard") {
+      const lv = this.state.lv;
+      const filtered = pool.filter(e => e.lv <= lv + 8 && e.lv >= Math.max(1, lv - 12));
+      if (filtered.length >= 3) candidates = filtered;
+    }
+
+    const template = candidates[Math.floor(Math.random() * candidates.length)];
+    this.startBattle(template, areaId);
+  },
+
+  startSpecificBattle(bossId) {
+    if (bossId === "demon_lord") {
+      if (this.state.defeatedGenerals.length < 4) {
+        this.openModal(`<div class="modal-title">🔒 封印された扉</div><p>四将を全員討伐するまで魔王の間へは入れません。</p><button class="btn" onclick="Game.closeModal()">閉じる</button>`);
+        return;
+      }
+      this.startBattle(DEMON_LORD, "demon_lord");
+      return;
+    }
+    const gen = FOUR_GENERALS.find(g => g.id === bossId);
+    if (gen) {
+      this.startBattle(gen, "four_generals");
+    }
+  },
+
+  /* ========================================================================
+     3. TURN-BASED COMBAT SYSTEM
+     ======================================================================== */
+  startBattle(enemyTemplate, areaId) {
+    const stats = this.getComputedStats();
+    const enemy = JSON.parse(JSON.stringify(enemyTemplate));
+    enemy.maxHp = enemy.hp;
+    enemy.statuses = {}; // burn, poison, freeze, para, curse
+    enemy.buffs = { def: 0, atk: 0 };
+
+    const pBuffs = {
+      atk: stats.effects.startAtk || 0,
+      def: stats.effects.startDef || 0,
+      mag: stats.effects.startMag || 0,
+      eva: 0,
+      crit: 0
+    };
+
+    this.battle = {
+      areaId,
+      enemy,
+      turn: 1,
+      pStatuses: {},
+      pBuffs,
+      logs: [`${enemy.name}（Lv.${enemy.lv}）が現れた！`],
+      finished: false,
+      victory: false
+    };
+
+    if (pBuffs.atk > 0 || pBuffs.def > 0 || pBuffs.mag > 0) {
+      this.battle.logs.push("ソウルの加護により戦闘開始時から能力が上昇している！");
+    }
+
+    this.render();
+  },
+
+  renderBattle(view) {
+    const b = this.battle;
+    const e = b.enemy;
+    const stats = this.getComputedStats();
+    const eHpPct = Math.max(0, Math.min(100, (e.hp / e.maxHp) * 100));
+
+    const equippedSpellObjs = this.state.equippedSpells
+      .map(id => this.getSpellById(id))
+      .filter(Boolean);
+
+    const statusTags = Object.keys(e.statuses).filter(k => e.statuses[k] > 0).map(k => {
+      const names = { burn: "火傷", poison: "毒", freeze: "凍結", para: "麻痺", curse: "呪い" };
+      return `<span class="badge" style="color:var(--accent-red); font-size:11px;">${names[k]}(${e.statuses[k]})</span>`;
+    }).join(" ");
+
+    const pStatusTags = Object.keys(b.pStatuses).filter(k => b.pStatuses[k] > 0).map(k => {
+      const names = { burn: "火傷", poison: "毒", freeze: "凍結", para: "麻痺", curse: "呪い" };
+      return `<span class="badge" style="color:var(--accent-red); font-size:11px;">${names[k]}(${b.pStatuses[k]})</span>`;
+    }).join(" ");
+
+    view.innerHTML = `
+      <div class="enemy-box" id="enemy-box">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span class="badge">Turn ${b.turn}</span>
+          <span style="font-size:12px; color:var(--text-muted);">Lv.${e.lv} / 回避${e.eva}%</span>
+        </div>
+        <div id="enemy-sprite" class="enemy-visual">${e.icon}</div>
+        <div style="font-size:18px; font-weight:800; margin-bottom:6px;">${e.name}</div>
+        <div style="margin-bottom:6px;">${statusTags}</div>
+        <div class="stat-bar-wrap" style="max-width:300px; margin:0 auto;">
+          <div class="stat-bar-fill enemy-hp-fill" style="width:${eHpPct}%;"></div>
+          <div class="stat-bar-text"><span>ENEMY HP</span><span>${Math.max(0, e.hp)} / ${e.maxHp}</span></div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:6px; display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+        <span style="font-size:12px; color:var(--text-muted);">状態:</span>
+        ${pStatusTags || '<span style="font-size:12px; color:var(--accent-green);">正常</span>'}
+        ${b.pBuffs.atk > 0 ? `<span class="badge" style="font-size:11px; color:var(--accent-gold);">攻+${Math.round(b.pBuffs.atk*100)}%</span>` : ""}
+        ${b.pBuffs.def > 0 ? `<span class="badge" style="font-size:11px; color:var(--accent-blue);">防+${Math.round(b.pBuffs.def*100)}%</span>` : ""}
+        ${b.pBuffs.mag > 0 ? `<span class="badge" style="font-size:11px; color:var(--accent-purple);">魔+${Math.round(b.pBuffs.mag*100)}%</span>` : ""}
+      </div>
+
+      <div class="battle-log" id="battle-log">
+        ${b.logs.map(line => `<div>${line}</div>`).join("")}
+      </div>
+
+      ${b.finished ? `
+        <button class="btn btn-gold" onclick="Game.finishBattleSequence()">戦闘結果を確認して進む</button>
+      ` : `
+        <div class="battle-actions" style="margin-bottom:10px;">
+          <button class="btn btn-primary" onclick="Game.playerAttack()">⚔️ 通常攻撃</button>
+          <button class="btn" onclick="Game.playerDefend()">🛡️ 防御・集中<br><span style="font-size:11px; font-weight:400;">被ダメ半減 & MP微回復</span></button>
+        </div>
+
+        <div class="card" style="padding:10px; margin-bottom:10px;">
+          <div style="font-size:13px; font-weight:700; color:var(--accent-purple); margin-bottom:8px;">📖 装備中の魔法（最大8枠）</div>
+          ${equippedSpellObjs.length === 0 ? '<div style="font-size:12px; color:var(--text-muted);">装備中の魔法がありません</div>' : `
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
+              ${equippedSpellObjs.map(sp => {
+                const realMp = Math.max(0, Math.floor(sp.mp * (1 - stats.effects.mpCostRed)));
+                const canCast = this.state.mp >= realMp;
+                return `
+                  <button class="btn btn-sm" style="flex-direction:column; align-items:flex-start; text-align:left; height:auto; padding:7px 9px;"
+                    ${canCast ? "" : "disabled"} onclick="Game.playerCastSpell('${sp.id}')">
+                    <div style="display:flex; justify-content:space-between; width:100%;">
+                      <span style="font-size:13px;">${sp.name}</span>
+                      <span class="attr-tag attr-${sp.attr}">${sp.attr}</span>
+                    </div>
+                    <span style="font-size:11px; color:var(--accent-blue); font-weight:400;">消費MP: ${realMp}</span>
+                  </button>
+                `;
+              }).join("")}
+            </div>
+          `}
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+          <button class="btn btn-sm" onclick="Game.openBattleItemModal()">🎒 アイテム使用</button>
+          <button class="btn btn-sm btn-danger" onclick="Game.fleeBattle(false)">🏃 逃走する</button>
+        </div>
+      `}
+    `;
+
+    const logBox = document.getElementById("battle-log");
+    if (logBox) logBox.scrollTop = logBox.scrollHeight;
+  },
+
+  showEnemyPopup(text, color = "#ffffff") {
+    const box = document.getElementById("enemy-box");
+    const sprite = document.getElementById("enemy-sprite");
+    if (sprite) {
+      sprite.classList.remove("shake");
+      void sprite.offsetWidth;
+      sprite.classList.add("shake");
+    }
+    if (box) {
+      const pop = document.createElement("div");
+      pop.className = "floating-popup";
+      pop.style.color = color;
+      pop.textContent = text;
+      box.appendChild(pop);
+      setTimeout(() => pop.remove(), 900);
+    }
+  },
+
+  checkPlayerActionBlocked() {
+    const b = this.battle;
+    if (b.pStatuses.freeze > 0) {
+      b.logs.push("❄️ 体が凍りついて動けない！");
+      return true;
+    }
+    if (b.pStatuses.para > 0 && Math.random() < 0.45) {
+      b.logs.push("⚡ 体が痺れて動けない！");
+      return true;
+    }
+    return false;
+  },
+
+  playerAttack() {
+    if (!this.battle || this.battle.finished) return;
+    const b = this.battle;
+    const e = b.enemy;
+    const stats = this.getComputedStats();
+
+    if (!this.checkPlayerActionBlocked()) {
+      // Enemy evasion check
+      if (Math.random() * 100 < e.eva) {
+        b.logs.push(`⚔️ 勇者の攻撃！しかし ${e.name} は素早く回避した！`);
+        this.render();
+        this.showEnemyPopup("回避！", "#4ea8de");
+      } else {
+        const effAtk = Math.floor(stats.atk * (1 + b.pBuffs.atk));
+        const effDef = Math.floor(e.def * (1 + e.buffs.def));
+        let dmg = Math.max(1, Math.floor(effAtk * 1.3 - effDef * 0.55));
+        const isCrit = Math.random() * 100 < (stats.crit + b.pBuffs.crit);
+        if (isCrit) {
+          dmg = Math.floor(dmg * (1.65 + stats.effects.critDmg));
+        }
+        dmg += stats.effects.bonusDmg;
+        e.hp -= dmg;
+
+        let msg = `⚔️ 勇者の攻撃！${isCrit ? "【会心の一撃！】" : ""}${e.name} に ${dmg} のダメージ！`;
+        if (stats.effects.lifesteal > 0) {
+          const heal = Math.max(1, Math.floor(dmg * stats.effects.lifesteal));
+          this.state.hp = Math.min(stats.maxHp, this.state.hp + heal);
+          msg += ` (HP+${heal}吸収)`;
+        }
+        b.logs.push(msg);
+        this.render();
+        this.showEnemyPopup(isCrit ? `💥 ${dmg}!` : `${dmg}`, isCrit ? "#f0c45c" : "#ffffff");
+      }
+    }
+
+    if (e.hp <= 0) {
+      this.handleBattleVictory();
+      return;
+    }
+    this.enemyTurn(false);
+  },
+
+  playerDefend() {
+    if (!this.battle || this.battle.finished) return;
+    const b = this.battle;
+    const stats = this.getComputedStats();
+    const mpRec = Math.max(3, Math.floor(stats.maxMp * 0.12));
+    this.state.mp = Math.min(stats.maxMp, this.state.mp + mpRec);
+    b.logs.push(`🛡️ 身を固めて防御態勢をとった！（MPが ${mpRec} 回復）`);
+    this.updateTopBar();
+    this.enemyTurn(true);
+  },
+
+  playerCastSpell(spellId) {
+    if (!this.battle || this.battle.finished) return;
+    const sp = this.getSpellById(spellId);
+    const stats = this.getComputedStats();
+    const realMp = Math.max(0, Math.floor(sp.mp * (1 - stats.effects.mpCostRed)));
+    if (!sp || this.state.mp < realMp) return;
+
+    const b = this.battle;
+    const e = b.enemy;
+
+    if (this.checkPlayerActionBlocked()) {
+      this.enemyTurn(false);
+      return;
+    }
+
+    this.state.mp -= realMp;
+    const effMag = Math.floor(stats.mag * (1 + b.pBuffs.mag));
+    let popupText = "";
+    let popupColor = "#a76df2";
+
+    if (sp.type === "heal" || sp.type === "heal_cure") {
+      const healAmt = Math.floor(effMag * sp.power + this.state.lv * 6);
+      this.state.hp = Math.min(stats.maxHp, this.state.hp + healAmt);
+      let extra = "";
+      if (sp.type === "heal_cure") {
+        b.pStatuses = {};
+        extra = " 状態異常もすべて浄化された！";
+      }
+      b.logs.push(`✨ 【${sp.name}】を唱えた！HPが ${healAmt} 回復した！${extra}`);
+    } else if (sp.type === "mp_recover") {
+      const rec = Math.floor(stats.maxMp * sp.val);
+      this.state.mp = Math.min(stats.maxMp, this.state.mp + rec);
+      b.logs.push(`💠 【${sp.name}】を唱えた！MPが ${rec} 回復した！`);
+    } else if (sp.type === "buff_atk") {
+      b.pBuffs.atk = Math.min(1.2, b.pBuffs.atk + sp.val);
+      b.logs.push(`🔥 【${sp.name}】を唱えた！攻撃力が上昇した！`);
+    } else if (sp.type === "buff_def") {
+      b.pBuffs.def = Math.min(1.2, b.pBuffs.def + sp.val);
+      b.logs.push(`🛡️ 【${sp.name}】を唱えた！防御力が上昇した！`);
+    } else if (sp.type === "buff_mag") {
+      b.pBuffs.mag = Math.min(1.2, b.pBuffs.mag + sp.val);
+      b.logs.push(`🔮 【${sp.name}】を唱えた！魔力が上昇した！`);
+    } else if (sp.type === "buff_eva") {
+      b.pBuffs.eva = Math.min(30, b.pBuffs.eva + sp.val);
+      if (sp.id === "m_thun_3") b.pBuffs.crit += 10;
+      b.logs.push(`⚡ 【${sp.name}】を唱えた！回避率が上昇した！`);
+    } else if (sp.type === "buff_all") {
+      b.pBuffs.atk = Math.min(1.2, b.pBuffs.atk + sp.val);
+      b.pBuffs.def = Math.min(1.2, b.pBuffs.def + sp.val);
+      b.pBuffs.mag = Math.min(1.2, b.pBuffs.mag + sp.val);
+      b.logs.push(`🌟 【${sp.name}】を唱えた！攻撃・防御・魔力が上昇した！`);
+    } else if (sp.type === "debuff_both") {
+      e.buffs.atk = Math.max(-0.5, e.buffs.atk - sp.val);
+      e.buffs.def = Math.max(-0.5, e.buffs.def - sp.val);
+      b.logs.push(`⛓️ 【${sp.name}】を唱えた！${e.name}の攻撃力と防御力が低下した！`);
+    } else if (sp.type === "attack" || sp.type === "drain") {
+      // Magical attack calculation
+      const ignoreDef = sp.ignoreDef || 0;
+      const effDef = Math.floor(e.def * (1 + e.buffs.def) * (1 - ignoreDef));
+      let raw = effMag * sp.power * 1.45 - effDef * 0.35;
+
+      // Soul magic & element boosts
+      const elemBoost = stats.effects.elemBoost[sp.attr] || 0;
+      raw *= (1 + stats.effects.magicBoost + elemBoost);
+
+      // Enemy resistances
+      const elemRes = (e.res && e.res[sp.attr]) || 0;
+      const magRes = (e.res && e.res["魔法耐性"]) || 0;
+      raw *= Math.max(0.25, 1 - elemRes - magRes);
+
+      let dmg = Math.max(1, Math.floor(raw));
+      const isCrit = Math.random() * 100 < (stats.crit + b.pBuffs.crit + (sp.critBonus || 0));
+      if (isCrit) {
+        dmg = Math.floor(dmg * (1.55 + stats.effects.critDmg));
+      }
+      e.hp -= dmg;
+
+      let extraLog = "";
+      if (elemRes > 0 || magRes > 0) extraLog += " (耐性軽減)";
+      if (elemRes < 0) extraLog += " (弱点！)";
+
+      if (sp.type === "drain") {
+        const heal = Math.max(1, Math.floor(dmg * sp.drainRate));
+        this.state.hp = Math.min(stats.maxHp, this.state.hp + heal);
+        extraLog += ` HPを${heal}吸収！`;
+      } else if (stats.effects.lifesteal > 0) {
+        const heal = Math.max(1, Math.floor(dmg * stats.effects.lifesteal));
+        this.state.hp = Math.min(stats.maxHp, this.state.hp + heal);
+        extraLog += ` HP+${heal}吸収`;
+      }
+
+      if (sp.status && Math.random() < (sp.statusChance || 0.4)) {
+        e.statuses[sp.status] = 3;
+        const sNames = { burn: "火傷", poison: "毒", freeze: "凍結", para: "麻痺", curse: "呪い" };
+        extraLog += ` 【${sNames[sp.status]}付与！】`;
+      }
+      if (sp.debuff === "atk") {
+        e.buffs.atk = Math.max(-0.5, e.buffs.atk - sp.val);
+        extraLog += ` 敵攻撃力低下！`;
+      }
+      if (sp.debuff === "def") {
+        e.buffs.def = Math.max(-0.5, e.buffs.def - sp.val);
+        extraLog += ` 敵防御力低下！`;
+      }
+
+      b.logs.push(`🔮 【${sp.name}】！${isCrit ? "【会心！】" : ""}${e.name} に ${dmg} の${sp.attr}ダメージ！${extraLog}`);
+      popupText = `${dmg}`;
+      popupColor = isCrit ? "#f0c45c" : "#d5b3ff";
+    }
+
+    this.updateTopBar();
+    this.render();
+    if (popupText) this.showEnemyPopup(popupText, popupColor);
+
+    if (e.hp <= 0) {
+      this.handleBattleVictory();
+      return;
+    }
+    this.enemyTurn(false);
+  },
+
+  openBattleItemModal() {
+    const usable = Object.entries(this.state.inventory)
+      .filter(([, cnt]) => cnt > 0)
+      .map(([id, cnt]) => ({ it: SHOP_ITEMS.find(x => x.id === id), cnt }))
+      .filter(x => x.it);
+
+    this.openModal(`
+      <div class="modal-title">🎒 戦闘アイテム使用</div>
+      ${usable.length === 0 ? '<p style="color:var(--text-muted);">使用できるアイテムがありません。</p>' :
+        usable.map(({ it, cnt }) => `
+          <div class="list-item">
+            <div class="list-item-info">
+              <div class="list-item-title">${it.name} <span class="badge">x${cnt}</span></div>
+              <div class="list-item-sub">${it.desc}</div>
+            </div>
+            <button class="btn btn-sm btn-primary" onclick="Game.useBattleItem('${it.id}')">使用</button>
+          </div>
+        `).join("")}
+      <button class="btn" style="margin-top:10px;" onclick="Game.closeModal()">閉じる</button>
+    `);
+  },
+
+  useBattleItem(itemId) {
+    this.closeModal();
+    const cnt = this.state.inventory[itemId] || 0;
+    if (cnt <= 0 || !this.battle) return;
+    const it = SHOP_ITEMS.find(x => x.id === itemId);
+    const stats = this.getComputedStats();
+    const b = this.battle;
+    const e = b.enemy;
+
+    this.state.inventory[itemId] = cnt - 1;
+
+    if (it.type === "heal_hp") {
+      this.state.hp = Math.min(stats.maxHp, this.state.hp + it.val);
+      b.logs.push(`🧪 ${it.name}を使用！HPが ${it.val} 回復した！`);
+    } else if (it.type === "heal_hp_pct") {
+      this.state.hp = stats.maxHp;
+      b.logs.push(`🧪 ${it.name}を使用！HPが全回復した！`);
+    } else if (it.type === "heal_mp") {
+      this.state.mp = Math.min(stats.maxMp, this.state.mp + it.val);
+      b.logs.push(`🧪 ${it.name}を使用！MPが ${it.val} 回復した！`);
+    } else if (it.type === "cure_all") {
+      this.state.hp = Math.min(stats.maxHp, this.state.hp + it.val);
+      b.pStatuses = {};
+      b.logs.push(`🧪 ${it.name}を使用！HP回復＆状態異常を全治療した！`);
+    } else if (it.type === "battle_dmg") {
+      e.hp -= it.val;
+      b.logs.push(`💣 ${it.name}を投げつけた！${e.name} に ${it.val} の固定ダメージ！`);
+    } else if (it.type === "battle_buff") {
+      b.pBuffs.atk += it.val;
+      b.pBuffs.mag += it.val;
+      b.logs.push(`⚗️ ${it.name}を飲んだ！攻撃力と魔力が35%上昇した！`);
+    }
+
+    this.updateTopBar();
+    if (e.hp <= 0) {
+      this.handleBattleVictory();
+      return;
+    }
+    this.enemyTurn(false);
+  },
+
+  enemyTurn(isDefending) {
+    const b = this.battle;
+    const e = b.enemy;
+    const stats = this.getComputedStats();
+
+    // Process enemy status DoTs
+    for (const st of ["burn", "poison", "curse"]) {
+      if (e.statuses[st] > 0) {
+        const dot = Math.max(5, Math.floor(e.maxHp * 0.06));
+        e.hp -= dot;
+        e.statuses[st] -= 1;
+        const names = { burn: "火傷", poison: "毒", curse: "呪い" };
+        b.logs.push(`🔥 ${e.name}は${names[st]}により ${dot} のダメージを受けた！`);
+      }
+    }
+    if (e.hp <= 0) {
+      this.handleBattleVictory();
+      return;
+    }
+
+    // Check enemy freeze/para
+    let enemyActed = true;
+    if (e.statuses.freeze > 0) {
+      e.statuses.freeze -= 1;
+      b.logs.push(`❄️ ${e.name}は凍結して動けない！`);
+      enemyActed = false;
+    } else if (e.statuses.para > 0) {
+      e.statuses.para -= 1;
+      if (Math.random() < 0.45) {
+        b.logs.push(`⚡ ${e.name}は麻痺して動けない！`);
+        enemyActed = false;
+      }
+    }
+
+    if (enemyActed) {
+      // Choose enemy action based on abilities
+      const ab = e.abilities || [];
+      const roll = Math.random();
+      let action = "normal";
+      if (ab.includes("heal_self") && e.hp < e.maxHp * 0.45 && roll < 0.35) action = "heal";
+      else if (ab.includes("buff_def") && e.buffs.def < 0.4 && roll < 0.28) action = "buff";
+      else if (ab.includes("debuff_player") && roll < 0.25) action = "debuff";
+      else if (ab.includes("aoe_heavy") && roll < 0.32) action = "heavy";
+      else if (ab.includes("double_strike") && roll < 0.35) action = "double";
+      else if (ab.some(a => a.startsWith("elem_")) && roll < 0.45) action = "elem";
+      else if (ab.some(a => a.startsWith("status_")) && roll < 0.35) action = "status";
+
+      if (action === "heal") {
+        const healAmt = Math.floor(e.maxHp * 0.16);
+        e.hp = Math.min(e.maxHp, e.hp + healAmt);
+        b.logs.push(`💚 ${e.name}は再生能力でHPを ${healAmt} 回復した！`);
+      } else if (action === "buff") {
+        e.buffs.def += 0.25;
+        b.logs.push(`🛡️ ${e.name}は守りを固め、防御力が上昇した！`);
+      } else if (action === "debuff") {
+        b.pBuffs.atk = Math.max(-0.4, b.pBuffs.atk - 0.15);
+        b.pBuffs.def = Math.max(-0.4, b.pBuffs.def - 0.15);
+        b.logs.push(`📉 ${e.name}の威圧！勇者の攻撃力と防御力が低下した！`);
+      } else {
+        // Offensive action -> Check Player Evasion!
+        const totalEva = Math.min(75, stats.eva + b.pBuffs.eva);
+        const evaded = Math.random() * 100 < totalEva;
+
+        if (evaded) {
+          b.logs.push(`💨 ${e.name}の攻撃！勇者は見事に【回避！】した！`);
+          this.showEnemyPopup("回避！", "#4cd180");
+
+          // Counter on evasion soul effect
+          if (stats.effects.counterOnEva) {
+            const cDmg = Math.max(1, Math.floor(stats.atk * 1.1 * stats.effects.counterMult - e.def * 0.4));
+            e.hp -= cDmg;
+            b.logs.push(`⚡ ソウルの力でカウンター発動！${e.name} に ${cDmg} の反撃ダメージ！`);
+            if (e.hp <= 0) {
+              this.handleBattleVictory();
+              return;
+            }
+          }
+        } else {
+          // Calculate incoming damage
+          let effDef = Math.floor(stats.def * (1 + b.pBuffs.def));
+          if (this.state.hp <= stats.maxHp * 0.5 && stats.effects.lowHpDef > 0) {
+            effDef = Math.floor(effDef * (1 + stats.effects.lowHpDef));
+          }
+          const effEnemyAtk = Math.floor(e.atk * (1 + e.buffs.atk));
+          let dmg = 0;
+
+          if (action === "heavy") {
+            dmg = Math.max(1, Math.floor(effEnemyAtk * 1.65 - effDef * 0.45));
+            b.logs.push(`💥 ${e.name}の強大な全体衝撃波！`);
+          } else if (action === "double") {
+            dmg = Math.max(2, Math.floor((effEnemyAtk * 0.95 - effDef * 0.4) * 2));
+            b.logs.push(`⚔️ ${e.name}の怒涛の連続攻撃！`);
+          } else if (action === "elem") {
+            const elemAb = ab.find(a => a.startsWith("elem_"));
+            const attr = elemAb.split("_")[1];
+            const res = stats.effects.elemRes[attr] || 0;
+            dmg = Math.max(1, Math.floor((e.mag * 1.45 - effDef * 0.35) * (1 - res)));
+            b.logs.push(`🔥 ${e.name}の${attr}属性攻撃！`);
+          } else if (action === "status") {
+            const stAb = ab.find(a => a.startsWith("status_"));
+            const st = stAb.split("_")[1];
+            dmg = Math.max(1, Math.floor(effEnemyAtk * 1.15 - effDef * 0.5));
+            if (Math.random() >= stats.effects.statusRes) {
+              b.pStatuses[st] = 3;
+              const sNames = { burn: "火傷", poison: "毒", freeze: "凍結", para: "麻痺", curse: "呪い" };
+              b.logs.push(`⚠️ ${e.name}の特殊攻撃！勇者は【${sNames[st]}】状態になった！`);
+            } else {
+              b.logs.push(`🛡️ ソウルの耐性で状態異常を防いだ！`);
+            }
+          } else {
+            dmg = Math.max(1, Math.floor(effEnemyAtk * 1.25 - effDef * 0.5));
+          }
+
+          if (isDefending) dmg = Math.max(1, Math.floor(dmg * 0.5));
+          this.state.hp = Math.max(0, this.state.hp - dmg);
+          b.logs.push(`🩸 勇者は ${dmg} のダメージを受けた！`);
+        }
+      }
+    }
+
+    // Player end-of-turn status & regen
+    for (const st of ["burn", "poison", "curse"]) {
+      if (b.pStatuses[st] > 0) {
+        const dot = Math.max(3, Math.floor(stats.maxHp * 0.05));
+        this.state.hp = Math.max(0, this.state.hp - dot);
+        b.pStatuses[st] -= 1;
+        const names = { burn: "火傷", poison: "毒", curse: "呪い" };
+        b.logs.push(`☠️ ${names[st]}のダメージでHPが ${dot} 減少した！`);
+      }
+    }
+
+    if (this.state.hp > 0) {
+      if (stats.effects.hpRegen > 0) {
+        const hReg = Math.max(1, Math.floor(stats.maxHp * stats.effects.hpRegen));
+        this.state.hp = Math.min(stats.maxHp, this.state.hp + hReg);
+      }
+      if (stats.effects.mpRegen > 0) {
+        const mReg = Math.max(1, Math.floor(stats.maxMp * stats.effects.mpRegen));
+        this.state.mp = Math.min(stats.maxMp, this.state.mp + mReg);
+      }
+    }
+
+    this.updateTopBar();
+
+    // Check player death -> Death Time Rewind!
+    if (this.state.hp <= 0) {
+      b.finished = true;
+      b.victory = false;
+      b.logs.push("💀 勇者は力尽きた……！");
+      this.render();
+      setTimeout(() => {
+        this.triggerTimeRewind("death");
+      }, 900);
+      return;
+    }
+
+    b.turn += 1;
+    this.render();
+  },
+
+  fleeBattle(forceMove = false, nextTab = "map") {
+    this.closeModal();
+    const b = this.battle;
+    if (!b) return;
+    if (!forceMove && Math.random() < 0.25 && b.areaId !== "demon_lord") {
+      b.logs.push("🏃 逃走を試みたが回り込まれてしまった！");
+      this.enemyTurn(false);
+      return;
+    }
+    this.battle = null;
+    this.addLog("battle", "戦闘から撤退した。（時間は1日経過）");
+    const rewound = this.advanceDay(1);
+    if (!rewound) {
+      this.saveGame();
+      this.switchTab(nextTab);
+    }
+  },
+
+  handleBattleVictory() {
+    const b = this.battle;
+    const e = b.enemy;
+    b.finished = true;
+    b.victory = true;
+    b.logs.push(`🎉 ${e.name} を討伐した！`);
+
+    // Rewards
+    const expGain = e.exp;
+    const goldGain = e.gold;
+    this.state.gold += goldGain;
+
+    // Boss progress tracking
+    if (b.areaId === "four_generals" && !this.state.defeatedGenerals.includes(e.id)) {
+      this.state.defeatedGenerals.push(e.id);
+      this.addLog("boss", `魔王軍四将【${e.name}】を撃破した！(${this.state.defeatedGenerals.length}/4)`);
+    }
+    if (b.areaId === "demon_lord") {
+      this.state.demonLordDefeated = true;
+      if (!this.state.gameCleared) {
+        this.state.gameCleared = true;
+        this.state.clearLevel = this.state.lv;
+        this.state.clearLoop = this.state.loopCount;
+      }
+      this.addLog("boss", `【輪廻の魔王クロノヴァル】を討伐し、世界を救った！`);
+    }
+
+    // Soul Drop Check
+    const droppedSouls = [];
+    if (e.drops && Array.isArray(e.drops)) {
+      for (const d of e.drops) {
+        if (Math.random() < d.rate) {
+          const soulObj = this.getSoulById(d.id);
+          if (soulObj) {
+            droppedSouls.push(soulObj);
+            if (!this.state.ownedSouls.includes(soulObj.id)) {
+              this.state.ownedSouls.push(soulObj.id);
+              this.addLog("soul", `永続ソウル【${soulObj.name}】(${soulObj.rarity})を獲得した！`);
+            } else {
+              // Duplicate soul converts into bonus EXP & Gold so farming stays rewarding
+              const bonusExp = 35;
+              this.state.exp += bonusExp;
+              this.addLog("soul", `既に所持している【${soulObj.name}】の魂片を吸収し、経験値+${bonusExp}を得た。`);
+            }
+          }
+        }
+      }
+    }
+
+    const { leveledUp, newlyLearned } = this.gainExp(expGain);
+    const contextLearned = this.checkSpellUnlocks(b.areaId);
+    const allNewSpells = [...newlyLearned, ...contextLearned];
+
+    b.resultData = { expGain, goldGain, leveledUp, allNewSpells, droppedSouls };
+    this.updateTopBar();
+    this.render();
+  },
+
+  finishBattleSequence() {
+    const b = this.battle;
+    if (!b || !b.resultData) return;
+    const { expGain, goldGain, leveledUp, allNewSpells, droppedSouls } = b.resultData;
+    const wasDemonLord = b.areaId === "demon_lord";
+    const enemyName = b.enemy.name;
+
+    this.battle = null;
+    this.addLog("battle", `${enemyName}に勝利！(EXP+${expGain}, +${goldGain}G)`);
+
+    // Show Victory Summary Modal first
+    let modalHtml = `
+      <div class="modal-title">🏆 戦闘勝利！</div>
+      <div class="status-grid" style="margin-bottom:12px;">
+        <div class="status-item"><span class="status-label">獲得EXP</span><span class="status-val" style="color:var(--accent-blue);">+${expGain}</span></div>
+        <div class="status-item"><span class="status-label">獲得ゴールド</span><span class="status-val" style="color:var(--accent-gold);">+${goldGain} G</span></div>
+      </div>
+    `;
+
+    if (leveledUp > 0) {
+      modalHtml += `<div class="card" style="border-color:var(--accent-green); padding:10px; text-align:center; font-weight:700; color:var(--accent-green);">🆙 レベルアップ！ Lv.${this.state.lv} になった！</div>`;
+    }
+
+    if (allNewSpells.length > 0) {
+      modalHtml += `
+        <div class="card" style="border-color:var(--accent-blue); padding:10px;">
+          <div style="font-weight:700; color:var(--accent-blue); margin-bottom:4px;">📖 新たな魔法を習得！</div>
+          ${allNewSpells.map(sp => `<div>・${sp.name}（${sp.attr} / 消費MP:${sp.mp}）</div>`).join("")}
+        </div>
+      `;
+    }
+
+    if (droppedSouls.length > 0) {
+      modalHtml += droppedSouls.map(soul => `
+        <div class="soul-drop-banner">
+          <div style="font-size:12px; color:var(--accent-gold); font-weight:700;">✨ SOUL DROP!（時間巻き戻し後も永続維持）✨</div>
+          <div class="r-${soul.rarity}" style="font-size:18px; font-weight:900; margin:4px 0;">💎 ${soul.name} [${soul.rarity}]</div>
+          <div style="font-size:12px; color:var(--text-muted);">${this.formatSoulStats(soul)}</div>
+          <div style="font-size:12px; color:var(--accent-purple); margin-top:4px;">特殊効果: ${soul.special}</div>
+        </div>
+      `).join("");
+    }
+
+    if (wasDemonLord) {
+      modalHtml += `<button class="btn btn-gold" onclick="Game.closeModal(); Game.afterBattleDayAdvance(true);">👑 エンディングを見る</button>`;
+    } else {
+      modalHtml += `<button class="btn btn-primary" onclick="Game.closeModal(); Game.afterBattleDayAdvance(false);">次へ進む（1日経過）</button>`;
+    }
+
+    this.saveGame();
+    this.switchTab("map");
+    this.openModal(modalHtml);
+  },
+
+  afterBattleDayAdvance(showEnding) {
+    if (showEnding) {
+      this.saveGame();
+      this.updateTopBar();
+      this.showEndingModal();
+      return;
+    }
+    const rewound = this.advanceDay(1);
+    if (!rewound) {
+      this.saveGame();
+      this.updateTopBar();
+      this.render();
+    }
+  },
+
+  showEndingModal() {
+    const lv = this.state.clearLevel || this.state.lv;
+    const loop = this.state.clearLoop || this.state.loopCount;
+    this.openModal(`
+      <div class="ending-box">
+        <div style="font-size:36px; margin-bottom:6px;">👑✨🌅</div>
+        <div style="font-size:20px; font-weight:900; color:var(--accent-gold); margin-bottom:10px;">祝・魔王討伐達成！</div>
+        <div class="status-grid" style="margin-bottom:10px;">
+          <div class="status-item"><span class="status-label">総周回数</span><span class="status-val" style="color:var(--accent-purple);">${loop} 周目</span></div>
+          <div class="status-item"><span class="status-label">クリア時レベル</span><span class="status-val" style="color:var(--accent-gold);">Lv.${lv}</span></div>
+        </div>
+        <div class="ending-text">${ENDING_EXACT_TEXT}</div>
+        <p style="font-size:12px; color:var(--text-muted); margin-bottom:12px;">
+          クリア後もそのまま冒険を続け、ソウルの完全収集や高難度エリアの制覇を楽しめます！
+        </p>
+        <button class="btn btn-gold" onclick="Game.closeModal()">タップして閉じて冒険を続ける</button>
+      </div>
+    `);
+  },
+
+  /* ========================================================================
+     4. MAGIC LIST, DETAIL & 8-SLOT EQUIPMENT SCREEN
+     ======================================================================== */
+  renderMagic(view) {
+    const s = this.state;
+    const attrs = ["all", "炎", "氷", "雷", "光", "闇", "無属性"];
+
+    const learnedObjs = s.learnedSpells
+      .map(id => this.getSpellById(id))
+      .filter(Boolean)
+      .filter(sp => this.magicFilter === "all" || sp.attr === this.magicFilter);
+
+    view.innerHTML = `
+      <div class="card">
+        <div class="card-title">
+          <span>🔮 戦闘用魔法編成（最大8枠）</span>
+          <span style="font-size:12px; color:var(--text-muted);">${s.equippedSpells.filter(Boolean).length} / 8 装備中</span>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
+          ${s.equippedSpells.map((spId, idx) => {
+            const sp = this.getSpellById(spId);
+            return `
+              <div style="background:var(--bg-card); border:1px solid ${sp ? "var(--accent-blue)" : "var(--border-color)"}; border-radius:8px; padding:8px;">
+                <div style="font-size:11px; color:var(--text-muted); display:flex; justify-content:space-between;">
+                  <span>枠 ${idx + 1}</span>
+                  ${sp ? `<span class="attr-tag attr-${sp.attr}">${sp.attr}</span>` : ""}
+                </div>
+                <div style="font-weight:700; font-size:13px; margin:4px 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                  ${sp ? sp.name : "（空きスロット）"}
+                </div>
+                <div style="display:flex; gap:4px;">
+                  <button class="btn btn-sm btn-primary" style="flex:1; min-height:30px; font-size:12px; padding:2px 6px;" onclick="Game.openSelectSpellForSlot(${idx})">セット</button>
+                  ${sp ? `<button class="btn btn-sm btn-danger" style="min-height:30px; font-size:12px; padding:2px 8px;" onclick="Game.unequipSpellSlot(${idx})">解除</button>` : ""}
+                </div>
+              </div>
+            `;
+          }).join("")}
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <span>📖 習得済み魔法一覧</span>
+          <span style="font-size:12px; color:var(--text-muted);">全${SPELLS.length}種中 ${s.learnedSpells.length}種習得</span>
+        </div>
+        <div class="tabs">
+          ${attrs.map(a => `
+            <button class="tab-btn ${this.magicFilter === a ? "active" : ""}" onclick="Game.magicFilter='${a}'; Game.render();">
+              ${a === "all" ? "すべて" : a}
+            </button>
+          `).join("")}
+        </div>
+        ${learnedObjs.map(sp => {
+          const isEquipped = s.equippedSpells.includes(sp.id);
+          return `
+            <div class="list-item" onclick="Game.openSpellDetailModal('${sp.id}')" style="cursor:pointer;">
+              <div class="list-item-info">
+                <div class="list-item-title">
+                  <span class="attr-tag attr-${sp.attr}">${sp.attr}</span>
+                  <span>${sp.name}</span>
+                  ${isEquipped ? '<span class="badge" style="color:var(--accent-gold); font-size:11px;">装備中</span>' : ""}
+                </div>
+                <div class="list-item-sub">消費MP: ${sp.mp} / ${sp.desc}</div>
+              </div>
+              <span style="color:var(--text-muted); font-size:13px;">詳細 ›</span>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    `;
+  },
+
+  openSpellDetailModal(spellId) {
+    const sp = this.getSpellById(spellId);
+    if (!sp) return;
+    const stats = this.getComputedStats();
+    const estValue = sp.type === "heal" || sp.type === "heal_cure"
+      ? `約 ${Math.floor(stats.mag * sp.power + this.state.lv * 6)} 回復`
+      : sp.power > 0
+        ? `約 ${Math.floor(stats.mag * sp.power * 1.45)} 基準威力 (倍率 ${sp.power}x)`
+        : "補助・強化魔法";
+
+    const sNames = { burn: "火傷付与", poison: "毒付与", freeze: "凍結(行動不能)", para: "麻痺付与", curse: "呪い付与" };
+    const extraEffect = sp.status ? `${sNames[sp.status]} (確率${Math.round(sp.statusChance * 100)}%)`
+      : sp.debuff ? `敵能力低下 (${Math.round(sp.val * 100)}%)`
+      : sp.type === "drain" ? `与ダメージの${Math.round(sp.drainRate * 100)}%HP吸収`
+      : sp.type === "heal_cure" ? "状態異常を全治療"
+      : "なし";
+
+    const specialEffect = sp.critBonus ? `会心率+${sp.critBonus}%`
+      : sp.ignoreDef ? `敵防御力${Math.round(sp.ignoreDef * 100)}%無視`
+      : sp.type.startsWith("buff") ? "戦闘中ステータス強化"
+      : sp.type === "mp_recover" ? `最大MPの${Math.round(sp.val * 100)}%回復`
+      : "なし";
+
+    const equippedSlot = this.state.equippedSpells.indexOf(sp.id);
+
+    this.openModal(`
+      <div class="modal-title" style="display:flex; justify-content:space-between; align-items:center;">
+        <span>📖 ${sp.name}</span>
+        <span class="attr-tag attr-${sp.attr}">${sp.attr}</span>
+      </div>
+      <div class="status-grid" style="margin-bottom:12px;">
+        <div class="status-item"><span class="status-label">属性</span><span class="status-val">${sp.attr}</span></div>
+        <div class="status-item"><span class="status-label">消費MP</span><span class="status-val" style="color:var(--accent-blue);">${sp.mp}</span></div>
+        <div class="status-item" style="grid-column:span 2;"><span class="status-label">ダメージ/回復量</span><span class="status-val">${estValue}</span></div>
+        <div class="status-item" style="grid-column:span 2;"><span class="status-label">追加効果</span><span class="status-val">${extraEffect}</span></div>
+        <div class="status-item" style="grid-column:span 2;"><span class="status-label">特殊効果</span><span class="status-val">${specialEffect}</span></div>
+      </div>
+      <p style="font-size:13px; color:var(--text-muted);">${sp.desc}</p>
+      <div style="display:flex; gap:8px; margin-top:14px;">
+        ${equippedSlot !== -1
+          ? `<button class="btn btn-danger" onclick="Game.unequipSpellSlot(${equippedSlot}); Game.closeModal();">枠${equippedSlot + 1}から解除</button>`
+          : `<button class="btn btn-primary" onclick="Game.autoEquipSpell('${sp.id}'); Game.closeModal();">空き枠に装備する</button>`}
+        <button class="btn" onclick="Game.closeModal()">閉じる</button>
+      </div>
+    `);
+  },
+
+  openSelectSpellForSlot(slotIdx) {
+    const s = this.state;
+    const available = s.learnedSpells
+      .map(id => this.getSpellById(id))
+      .filter(Boolean);
+
+    this.openModal(`
+      <div class="modal-title">枠 ${slotIdx + 1} にセットする魔法を選択</div>
+      <p style="font-size:12px; color:var(--text-muted); margin-top:0;">※同じ魔法を複数枠に装備することはできません。</p>
+      ${available.map(sp => {
+        const usedIdx = s.equippedSpells.indexOf(sp.id);
+        const alreadyEquippedElsewhere = usedIdx !== -1 && usedIdx !== slotIdx;
+        return `
+          <div class="list-item">
+            <div class="list-item-info">
+              <div class="list-item-title">
+                <span class="attr-tag attr-${sp.attr}">${sp.attr}</span>
+                <span>${sp.name}</span>
+              </div>
+              <div class="list-item-sub">消費MP:${sp.mp} / ${sp.desc}</div>
+            </div>
+            ${alreadyEquippedElsewhere
+              ? `<span class="badge" style="color:var(--text-muted);">枠${usedIdx + 1}装備中</span>`
+              : `<button class="btn btn-sm btn-primary" onclick="Game.equipSpellToSlot(${slotIdx}, '${sp.id}')">選択</button>`}
+          </div>
+        `;
+      }).join("")}
+      <button class="btn" style="margin-top:10px;" onclick="Game.closeModal()">キャンセル</button>
+    `);
+  },
+
+  equipSpellToSlot(slotIdx, spellId) {
+    // Prevent duplicate equipping
+    if (this.state.equippedSpells.includes(spellId) && this.state.equippedSpells[slotIdx] !== spellId) {
+      return;
+    }
+    this.state.equippedSpells[slotIdx] = spellId;
+    this.saveGame();
+    this.closeModal();
+    this.render();
+  },
+
+  autoEquipSpell(spellId) {
+    if (this.state.equippedSpells.includes(spellId)) return;
+    const emptyIdx = this.state.equippedSpells.indexOf(null);
+    if (emptyIdx === -1) {
+      this.openModal(`<div class="modal-title">⚠️ 装備枠がいっぱいです</div><p>最大8枠すべてに魔法が装備されています。いずれかの枠を解除してから装備してください。</p><button class="btn" onclick="Game.closeModal()">閉じる</button>`);
+      return;
+    }
+    this.state.equippedSpells[emptyIdx] = spellId;
+    this.saveGame();
+    this.render();
+  },
+
+  unequipSpellSlot(slotIdx) {
+    this.state.equippedSpells[slotIdx] = null;
+    this.saveGame();
+    this.render();
+  },
+
+  /* ========================================================================
+     5. SOUL EQUIPMENT & DETAIL SCREEN (Permanent Across Loops)
+     ======================================================================== */
+  formatSoulStats(soul) {
+    const parts = [];
+    if (soul.atk) parts.push(`攻撃+${soul.atk}`);
+    if (soul.def) parts.push(`防御+${soul.def}`);
+    if (soul.mag) parts.push(`魔力+${soul.mag}`);
+    if (soul.hp) parts.push(`HP+${soul.hp}`);
+    if (soul.mp) parts.push(`MP+${soul.mp}`);
+    if (soul.crit) parts.push(`会心+${soul.crit}%`);
+    if (soul.eva) parts.push(`回避+${soul.eva}%`);
+    return parts.length > 0 ? parts.join(" / ") : "特殊効果特化";
+  },
+
+  isSoulEquipped(soulId) {
+    const eq = this.state.equippedSouls;
+    return eq.weapon === soulId || eq.armor === soulId || eq.acc1 === soulId || eq.acc2 === soulId;
+  },
+
+  renderSoul(view) {
+    const s = this.state;
+    const eq = s.equippedSouls;
+    const slots = [
+      { key: "weapon", label: "武器ソウル", soul: this.getSoulById(eq.weapon) },
+      { key: "armor", label: "防具ソウル", soul: this.getSoulById(eq.armor) },
+      { key: "acc1", label: "装飾ソウル 1", soul: this.getSoulById(eq.acc1) },
+      { key: "acc2", label: "装飾ソウル 2", soul: this.getSoulById(eq.acc2) }
+    ];
+
+    const ownedObjs = s.ownedSouls
+      .map(id => this.getSoulById(id))
+      .filter(Boolean)
+      .filter(soul => this.soulFilter === "all" || soul.slot === this.soulFilter);
+
+    view.innerHTML = `
+      <div class="card">
+        <div class="card-title">
+          <span>💎 装備中のソウル（時間巻き戻し不滅）</span>
+          <span style="font-size:12px; color:var(--accent-purple);">収集率: ${s.ownedSouls.length}/${SOULS.length}</span>
+        </div>
+        ${slots.map(sl => `
+          <div class="list-item ${sl.soul ? `border-${sl.soul.rarity}` : ""}">
+            <div class="list-item-info">
+              <div style="font-size:11px; color:var(--text-muted);">${sl.label}</div>
+              ${sl.soul ? `
+                <div class="list-item-title r-${sl.soul.rarity}">${sl.soul.name} [${sl.soul.rarity}]</div>
+                <div class="list-item-sub">${this.formatSoulStats(sl.soul)} ｜ ${sl.soul.special}</div>
+              ` : `<div style="font-size:13px; color:var(--text-muted);">（未装備）</div>`}
+            </div>
+            ${sl.soul ? `<button class="btn btn-sm btn-danger" onclick="Game.unequipSoul('${sl.key}')">解除</button>` : ""}
+          </div>
+        `).join("")}
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <span>🔮 所持ソウル一覧（タップで詳細・比較）</span>
+        </div>
+        <div class="tabs">
+          <button class="tab-btn ${this.soulFilter === "all" ? "active" : ""}" onclick="Game.soulFilter='all'; Game.render();">すべて</button>
+          <button class="tab-btn ${this.soulFilter === "weapon" ? "active" : ""}" onclick="Game.soulFilter='weapon'; Game.render();">武器</button>
+          <button class="tab-btn ${this.soulFilter === "armor" ? "active" : ""}" onclick="Game.soulFilter='armor'; Game.render();">防具</button>
+          <button class="tab-btn ${this.soulFilter === "acc" ? "active" : ""}" onclick="Game.soulFilter='acc'; Game.render();">装飾</button>
+        </div>
+
+        ${ownedObjs.length === 0 ? '<div style="color:var(--text-muted); font-size:13px;">該当するソウルを所持していません。「鎧の墓場」で強敵を倒すと獲得できます。</div>' :
+          ownedObjs.map(soul => {
+            const equipped = this.isSoulEquipped(soul.id);
+            const slotNames = { weapon: "武器", armor: "防具", acc: "装飾" };
+            return `
+              <div class="list-item border-${soul.rarity}" onclick="Game.openSoulDetailModal('${soul.id}')" style="cursor:pointer;">
+                <div class="list-item-info">
+                  <div class="list-item-title">
+                    <span class="badge" style="font-size:11px;">${slotNames[soul.slot]}</span>
+                    <span class="r-${soul.rarity}">${soul.name}</span>
+                    <span class="r-${soul.rarity}" style="font-size:12px;">[${soul.rarity}]</span>
+                    ${equipped ? '<span class="badge" style="color:var(--accent-gold); font-size:11px;">装備中</span>' : ""}
+                  </div>
+                  <div class="list-item-sub">${this.formatSoulStats(soul)}</div>
+                  <div class="list-item-sub" style="color:var(--accent-purple);">特殊効果: ${soul.special}</div>
+                </div>
+                <span style="color:var(--text-muted); font-size:13px;">詳細 ›</span>
+              </div>
+            `;
+          }).join("")}
+      </div>
+    `;
+  },
+
+  openSoulDetailModal(soulId) {
+    const soul = this.getSoulById(soulId);
+    if (!soul) return;
+    const eq = this.state.equippedSouls;
+    const curStats = this.getComputedStats();
+
+    // Preview stat changes if equipped
+    const previewEq = Object.assign({}, eq);
+    if (soul.slot === "weapon") previewEq.weapon = soul.id;
+    else if (soul.slot === "armor") previewEq.armor = soul.id;
+    else if (soul.slot === "acc") {
+      if (eq.acc1 === soul.id || eq.acc2 === soul.id) {
+        // already equipped
+      } else if (!eq.acc1) previewEq.acc1 = soul.id;
+      else if (!eq.acc2) previewEq.acc2 = soul.id;
+      else previewEq.acc1 = soul.id;
+    }
+    const nextStats = this.getComputedStats(previewEq);
+
+    const diffStr = (a, b, suffix = "") => {
+      const d = b - a;
+      if (d === 0) return `${b}${suffix}`;
+      return d > 0
+        ? `${b}${suffix} <span style="color:var(--accent-green);">(+${d}${suffix})</span>`
+        : `${b}${suffix} <span style="color:var(--accent-red);">(${d}${suffix})</span>`;
+    };
+
+    const alreadyEquipped = this.isSoulEquipped(soul.id);
+
+    let actionButtons = "";
+    if (alreadyEquipped) {
+      actionButtons = `<button class="btn btn-danger" onclick="Game.unequipSoulById('${soul.id}'); Game.closeModal();">装備を解除する</button>`;
+    } else if (soul.slot === "weapon") {
+      actionButtons = `<button class="btn btn-gold" onclick="Game.equipSoul('weapon', '${soul.id}'); Game.closeModal();">武器枠に装備する</button>`;
+    } else if (soul.slot === "armor") {
+      actionButtons = `<button class="btn btn-gold" onclick="Game.equipSoul('armor', '${soul.id}'); Game.closeModal();">防具枠に装備する</button>`;
+    } else if (soul.slot === "acc") {
+      actionButtons = `
+        <button class="btn btn-gold" onclick="Game.equipSoul('acc1', '${soul.id}'); Game.closeModal();">装飾枠1に装備</button>
+        <button class="btn btn-gold" onclick="Game.equipSoul('acc2', '${soul.id}'); Game.closeModal();">装飾枠2に装備</button>
+      `;
+    }
+
+    this.openModal(`
+      <div class="modal-title r-${soul.rarity}">💎 ${soul.name} [${soul.rarity}]</div>
+      <div style="font-size:13px; margin-bottom:8px;">
+        <strong>基本性能:</strong> ${this.formatSoulStats(soul)}
+      </div>
+      <div style="font-size:13px; color:var(--accent-purple); margin-bottom:12px;">
+        <strong>特殊効果:</strong> ${soul.special}
+      </div>
+      <div class="card" style="background:#0d1017; padding:10px; font-size:13px;">
+        <div style="font-weight:700; margin-bottom:6px; color:var(--text-muted);">装備時のステータス変化プレビュー</div>
+        <div class="status-grid">
+          <div>HP: ${diffStr(curStats.maxHp, nextStats.maxHp)}</div>
+          <div>MP: ${diffStr(curStats.maxMp, nextStats.maxMp)}</div>
+          <div>攻撃: ${diffStr(curStats.atk, nextStats.atk)}</div>
+          <div>防御: ${diffStr(curStats.def, nextStats.def)}</div>
+          <div>魔力: ${diffStr(curStats.mag, nextStats.mag)}</div>
+          <div>回避: ${diffStr(curStats.eva, nextStats.eva, "%")}</div>
+        </div>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:8px; margin-top:12px;">
+        ${actionButtons}
+        <button class="btn" onclick="Game.closeModal()">閉じる</button>
+      </div>
+    `);
+  },
+
+  equipSoul(slotKey, soulId) {
+    // Prevent equipping the exact same soul in multiple slots
+    if (this.isSoulEquipped(soulId)) {
+      this.unequipSoulById(soulId);
+    }
+    this.state.equippedSouls[slotKey] = soulId;
+    const stats = this.getComputedStats();
+    this.state.hp = Math.min(stats.maxHp, this.state.hp);
+    this.state.mp = Math.min(stats.maxMp, this.state.mp);
+    this.saveGame();
+    this.updateTopBar();
+    this.render();
+  },
+
+  unequipSoul(slotKey) {
+    this.state.equippedSouls[slotKey] = null;
+    const stats = this.getComputedStats();
+    this.state.hp = Math.min(stats.maxHp, this.state.hp);
+    this.state.mp = Math.min(stats.maxMp, this.state.mp);
+    this.saveGame();
+    this.updateTopBar();
+    this.render();
+  },
+
+  unequipSoulById(soulId) {
+    const eq = this.state.equippedSouls;
+    for (const k of ["weapon", "armor", "acc1", "acc2"]) {
+      if (eq[k] === soulId) eq[k] = null;
+    }
+    const stats = this.getComputedStats();
+    this.state.hp = Math.min(stats.maxHp, this.state.hp);
+    this.state.mp = Math.min(stats.maxMp, this.state.mp);
+    this.saveGame();
+    this.updateTopBar();
+    this.render();
+  },
+
+  /* ========================================================================
+     6. LOGS & SAVE/LOAD MANAGEMENT SCREEN
+     ======================================================================== */
+  renderLog(view) {
+    const s = this.state;
+    view.innerHTML = `
+      <div class="card">
+        <div class="card-title">💾 セーブ・データ管理</div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px;">
+          <button class="btn btn-primary" onclick="Game.saveGame(); Game.openModal('<div class=\'modal-title\'>💾 セーブ完了</div><p>進行状況をブラウザに保存しました。</p><button class=\'btn\' onclick=\'Game.closeModal()\'>閉じる</button>');">手動セーブ</button>
+          <button class="btn" onclick="Game.returnToTitle()">タイトル画面へ</button>
+        </div>
+        ${s.gameCleared ? `<button class="btn btn-gold" style="margin-bottom:8px;" onclick="Game.showEndingModal()">👑 クリア結果・エンディング再表示</button>` : ""}
+        <button class="btn btn-danger btn-sm" style="width:100%;" onclick="Game.confirmHardReset()">セーブデータを完全初期化</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <span>📜 冒険の記録ログ</span>
+          <span style="font-size:12px; color:var(--text-muted);">最新${s.logs.length}件</span>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:6px; font-size:13px;">
+          ${s.logs.map(l => {
+            let color = "var(--text-main)";
+            if (l.type === "rewind_death") color = "var(--accent-red)";
+            else if (l.type === "rewind_time") color = "var(--accent-purple)";
+            else if (l.type === "soul") color = "var(--accent-gold)";
+            else if (l.type === "magic") color = "var(--accent-blue)";
+            else if (l.type === "boss") color = "var(--accent-green)";
+            return `<div style="padding:6px 8px; background:var(--bg-card); border-radius:6px; color:${color};">${l.text}</div>`;
+          }).join("")}
+        </div>
+      </div>
+    `;
+  },
+
+  returnToTitle() {
+    this.saveGame();
+    document.getElementById("game-shell").style.display = "none";
+    document.getElementById("title-screen").style.display = "flex";
+    this.init();
+  },
+
+  openModal(html) {
+    const backdrop = document.getElementById("modal-backdrop");
+    const content = document.getElementById("modal-content");
+    content.innerHTML = html;
+    backdrop.classList.add("open");
+  },
+
+  closeModal() {
+    document.getElementById("modal-backdrop").classList.remove("open");
+  }
+};
+
+window.addEventListener("DOMContentLoaded", () => {
+  Game.init();
+});
+</script>
+</body>
+</html>
